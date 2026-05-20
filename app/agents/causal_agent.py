@@ -25,6 +25,13 @@ from langchain_tavily import TavilySearch
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from common.logger import logger
+from tools.dag_utils import (
+    dag_adjustment_set,
+    dag_backdoor_paths,
+    dag_frontdoor_paths,
+    dag_parse,
+    dag_to_mermaid,
+)
 
 load_dotenv()
 
@@ -184,6 +191,21 @@ F. 复杂问题输出完整"因果分析报告"
 - 文件名 · p.页码
 - ...
 
+# DAG 工具使用规则
+- 当用户给出形如 "A -> B" 的因果图描述、或要求分析路径 / 后门 / 调整集合时，必须按下面顺序调用工具，不要用自然语言推理代替：
+  1) `dag_parse(text)` —— 先把图结构化、检测环。
+  2) 若用户指定了 treatment 和 outcome：
+     - `dag_frontdoor_paths(text, treatment, outcome)` —— 前门路径（即模板 C 的「因果路径」小节）。
+     - `dag_backdoor_paths(text, treatment, outcome)` —— 后门路径。
+     - `dag_adjustment_set(text, treatment, outcome)` —— 调整集合 + 中介标注。
+  3) 在最终回答里把工具返回的 ```mermaid``` 代码块**原样保留**，前端会自动渲染成图，不要把它当成普通代码块复述或改写。
+- 若 `dag_parse` 返回 `has_cycle=True`，先告知用户图中存在环、列出环路、要求用户修正，再决定是否继续后续分析。
+- 模板 C「DAG 分析」的填法：
+  - "因果路径"（=前门路径） ← `dag_frontdoor_paths` 的输出
+  - "后门路径" ← `dag_backdoor_paths` 的输出
+  - "推荐的调整集合" ← `dag_adjustment_set` 中的 `adjustment_set` 字段
+  - "不应控制的变量及原因" ← `dag_adjustment_set` 中的 `forbidden_nodes` 字段；其中属于 `mediators` 的节点必须明确说明 "它是因果路径上的中介，控制后会阻断因果效应"。
+
 请严格遵守以上准则，结构化输出回答。"""
 
 
@@ -193,7 +215,15 @@ F. 复杂问题输出完整"因果分析报告"
 
 agent = create_agent(
     model=model,
-    tools=[causal_knowledge_search, web_search],
+    tools=[
+        causal_knowledge_search,
+        web_search,
+        dag_parse,
+        dag_frontdoor_paths,
+        dag_backdoor_paths,
+        dag_adjustment_set,
+        dag_to_mermaid,
+    ],
     checkpointer=checkpointer,
     system_prompt=system_prompt,
 )

@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <!-- mermaid@11.4.0 from jsdelivr; 与 Sprint 1 一同引入 -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.min.js"></script>
   <style>
     :root {
       --bg: #f6f7fb;
@@ -498,6 +500,18 @@
     .bubble th { background: var(--bg); }
     .bubble a { color: var(--primary-dark); }
 
+    /* Mermaid 渲染容器 */
+    .mermaid {
+      background: #fff;
+      border: 1px solid var(--border, #e5e7eb);
+      border-radius: 12px;
+      padding: 12px;
+      margin: 8px 0;
+      overflow-x: auto;
+      text-align: center;
+    }
+    .mermaid svg { max-width: 100%; height: auto; }
+
     /* Streaming caret */
     .caret {
       display: inline-block;
@@ -767,6 +781,16 @@
       marked.setOptions({ breaks: true, gfm: true, headerIds: false, mangle: false });
     }
 
+    // mermaid 初始化：手动渲染，避免每个 chunk 都刷一次
+    if (window.mermaid && typeof mermaid.initialize === "function") {
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: "default",
+        securityLevel: "loose", // 允许中文节点名
+        flowchart: { htmlLabels: true, curve: "basis" },
+      });
+    }
+
     // ----- thread id 持久化 + 会话列表 -----
     const LS_THREADS = "causal_threads_v1";
     const LS_CURRENT = "causal_thread_id";
@@ -963,6 +987,41 @@
         console.warn("KaTeX 渲染失败:", e);
       }
     }
+
+    // 把 marked 渲染出的 <pre><code class="language-mermaid">…</code></pre>
+    // 替换为 <div class="mermaid">…</div>，再交给 mermaid.run 一次性绘图。
+    // 调用时机：appendMessage 非 streaming 分支（历史回放）+ sendMessage 流结束。
+    // 流式过程中不调用，避免未闭合代码块或重渲染抖动。
+    async function renderMermaid(el) {
+      if (!el || !window.mermaid) return;
+      const codes = el.querySelectorAll('pre > code.language-mermaid');
+      if (codes.length === 0) return;
+      const targets = [];
+      const fallback = [];
+      codes.forEach((codeEl) => {
+        const pre = codeEl.parentElement;
+        if (!pre || !pre.parentElement) return;
+        const src = codeEl.textContent || "";
+        const div = document.createElement("div");
+        div.className = "mermaid";
+        div.textContent = src;
+        // 保留原 <pre> 以便渲染失败时回滚
+        const placeholder = pre;
+        pre.parentElement.replaceChild(div, pre);
+        targets.push(div);
+        fallback.push(placeholder);
+      });
+      if (targets.length === 0) return;
+      try {
+        await mermaid.run({ nodes: targets });
+      } catch (e) {
+        console.warn("Mermaid 渲染失败:", e);
+        // 回滚为原始 <pre><code> 文本，至少能看到源码
+        targets.forEach((div, i) => {
+          if (div.parentElement) div.parentElement.replaceChild(fallback[i], div);
+        });
+      }
+    }
     function appendMessage(role, content, { streaming = false } = {}) {
       WELCOME_EL.style.display = "none";
       const msg = document.createElement("div");
@@ -978,6 +1037,7 @@
         } else {
           bubble.innerHTML = renderAssistantContent(content);
           renderMath(bubble);
+          renderMermaid(bubble);
         }
       } else {
         bubble.textContent = content;
@@ -1078,6 +1138,7 @@
         }
         bubble.innerHTML = renderAssistantContent(acc || "（助手未返回内容）");
         renderMath(bubble);
+        renderMermaid(bubble);
         setStatus("idle", "就绪 · 等待提问");
       } catch (err) {
         console.error(err);
