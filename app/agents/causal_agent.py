@@ -32,6 +32,7 @@ from tools.dag_utils import (
     dag_parse,
     dag_to_mermaid,
 )
+from tools.data_profile import summarize_uploaded_dataset
 
 load_dotenv()
 
@@ -122,10 +123,34 @@ system_prompt = """你是一名因果推断（Causal Inference）与因果发现
 - 信息不足时，先追问再调用工具，避免无意义检索。
 
 # 引用规范
-- `causal_knowledge_search` 返回的每条片段都带有形如 `[来源: 文件名 · p.页码]` 的标记，必须忠实保留。
-- 在回答的最后用 **参考资料** 小节列出本次使用到的来源，格式：`- 文件名 · p.页码`；同一来源多页可合并写。
-- 网络搜索结果若有 URL，同样在参考资料里列出（保留原标题与链接）。
-- 没有调用任何检索工具时不要凭空捏造文献，可直接说明"基于经典理论 / 经验回答"。
+- 「参考资料」小节只能列：
+  1) `causal_knowledge_search` 返回的 `[来源: 文件名 · p.页码]`；
+  2) `web_search` 返回的网页标题 + URL。
+- DAG / 路径 / 调整集合 / 因果发现 / 因果效应估计这一类**计算工具**（如
+  `dag_parse`、`dag_frontdoor_paths`、`dag_backdoor_paths`、
+  `dag_adjustment_set`、`dag_to_mermaid` 等）属于内部计算依据，**禁止**
+  出现在「参考资料」里，也**禁止**把工具的函数名暴露给用户。
+- 若本次回答没有调用任何检索工具，**必须省略整个「参考资料」小节**；
+  绝不允许用「经典理论 / 经验回答」等措辞虚构作者、年份或论文标题。
+- 如需说明分析所依据的方法，可在正文 / 「方法说明」一类小节用自然语言描述
+  （例如"基于后门准则推导的调整集合"、"沿全部有向路径识别中介"），
+  但**不要写出 `dag_xxx` 这种函数名**。这是后端实现细节，对终端用户不可见。
+- `causal_knowledge_search` 返回的 `[来源: 文件名 · p.页码]` 标记必须在正文中忠实保留；
+  在末尾「参考资料」小节中再以 `- 文件名 · p.页码` 的形式归并列出（同一来源多页可合并写）。
+- **不暴露后端实现**：用户可见的回答正文里**禁止以代码格式 / 函数名形式**
+  提及任何工具，包括但不限于：`causal_knowledge_search`、`web_search`、
+  `dag_parse`、`dag_frontdoor_paths`、`dag_backdoor_paths`、
+  `dag_adjustment_set`、`dag_to_mermaid`，以及未来新增的所有 `dag_*` /
+  `dowhy_*` / 数据上传 / 因果发现工具。
+- 需要表达"我可以为你查资料 / 跑分析"时，用**能力描述**而非函数名：
+  - ❌ "我可以调用 `causal_knowledge_search` 检索本地知识库"
+  - ✅ "如果你需要，我可以从本地因果论文知识库（如 *Causation, Prediction,
+       and Search* 等）为你补充后门准则的正式定义与相关文献。"
+  - ❌ "用 `dag_adjustment_set` 推导调整集合"
+  - ✅ "基于后门准则推导一个充分的调整集合"
+- 不允许出现以反引号包裹的英文标识符 `xxx_yyy` 形式的"工具入口名"；
+  若必须解释方法依据，用自然语言（如"图分析模块"、"本地知识库检索"、
+  "后门准则推导"）。
 
 # 行为准则
 - 永远不要把相关性直接表述为因果性。
@@ -206,6 +231,22 @@ F. 复杂问题输出完整"因果分析报告"
   - "推荐的调整集合" ← `dag_adjustment_set` 中的 `adjustment_set` 字段
   - "不应控制的变量及原因" ← `dag_adjustment_set` 中的 `forbidden_nodes` 字段；其中属于 `mediators` 的节点必须明确说明 "它是因果路径上的中介，控制后会阻断因果效应"。
 
+# 数据驱动模式 · 上传后概览（Sprint 2 阶段一）
+- 当本轮用户消息以 `[已上传数据: profile_summary={...}]` 标记开头时，进入「数据驱动模式 · 概览阶段」，按下面两步**严格顺序**执行：
+  1) 调用「读取已上传数据画像」工具（即 `summarize_uploaded_dataset(thread_id)`，注意 `thread_id` 直接来自当前会话的 configurable 参数，不要凭空猜测），拿到含逐列统计的 profile 摘要。基于结果生成 **3-6 行**自然语言概览：
+     - 行 × 列、数值/分类列分布、整体缺失率、关键 warnings；
+     - **必须**点出 2-3 个代表性数值列的大致范围（均值 ± 标准差，或 [min, max]），以及 1-2 个分类列的主要取值占比（若工具有返回）；
+     - **禁止**在正文里堆完整 columns 表格或相关性矩阵。
+  2) 在概览之后追加「下一步建议」小节，**主动询问**用户：「希望基于这份数据做哪种因果分析？」给 3-4 个可点击的方向选项：
+     - 「先识别 Treatment / Outcome / Confounder 等变量角色」
+     - 「估计某个变量对另一个变量的因果效应」
+     - 「从数据中自动学习因果结构（DAG）」
+     - 「先做异常 / 缺失 / 共线性诊断」
+- **禁止**输出 ```causal-card type=profile``` 代码块：详细数据画像卡片（含数值列统计表、分类频次、相关性）已由前端通过 profile API 自动渲染，你再输出会造成重复且浪费 token。
+- 本阶段**禁止**直接执行算法工具（因果发现 / 因果效应估计 / 算法推荐）—— 这些会在后续阶段引入；当前只做「文字概览 + 询问意向」。
+- profile_summary 标记里的数值可以在正文复述，但**不要**把 `[已上传数据: profile_summary=...]` 这个字面字符串原样回写给用户——它是后端协议字段，对用户不可见。
+- 若用户消息既包含 profile_summary 标记又含自然语言追问，先完成步骤 1+2，再针对追问给一句简短引导（不要替用户做决定）。
+
 请严格遵守以上准则，结构化输出回答。"""
 
 
@@ -223,6 +264,7 @@ agent = create_agent(
         dag_backdoor_paths,
         dag_adjustment_set,
         dag_to_mermaid,
+        summarize_uploaded_dataset,
     ],
     checkpointer=checkpointer,
     system_prompt=system_prompt,
@@ -267,9 +309,17 @@ async def causal_chat(prompt: str, image: str, thread_id: str):
 
 
 def clear_messages(thread_id: str) -> None:
-    """清空指定会话的历史记录。"""
+    """清空指定会话的历史记录，并同步清理该会话的上传目录。"""
     logger.info(f"清空会话历史，thread_id={thread_id!r}")
     checkpointer.delete_thread(thread_id)
+    # Sprint 2：同步删除 app/uploads/<thread_id>/ 整个目录，避免下次复用
+    # 同名 thread_id 时看到陈旧的 data.csv / profile.json。
+    try:
+        from api.v1.upload import cleanup_thread_uploads
+        cleanup_thread_uploads(thread_id)
+    except Exception as exc:
+        # 清理失败不影响聊天接口主路径
+        logger.warning(f"清理上传目录时出错 thread_id={thread_id!r}: {exc}")
 
 
 def get_messages(thread_id: str) -> list[dict[str, str]]:

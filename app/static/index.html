@@ -512,6 +512,181 @@
     }
     .mermaid svg { max-width: 100%; height: auto; }
 
+    /* ---------- 系统提示消息（上传 / 状态恢复等）---------- */
+    .msg.system {
+      justify-content: center;
+    }
+    .msg.system .avatar { display: none; }
+    .msg.system .bubble {
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px dashed #cbd5e1;
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 13px;
+      max-width: 600px;
+      text-align: center;
+      box-shadow: none;
+    }
+
+    /* ---------- causal-card 数据卡片 ---------- */
+    .causal-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      font-size: 13px;
+      color: var(--text);
+      box-shadow: var(--shadow-sm);
+    }
+    .causal-card h4 {
+      font-size: 14px;
+      font-weight: 700;
+      margin: 0 0 10px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .causal-card h4::before {
+      content: "";
+      display: inline-block;
+      width: 4px;
+      height: 14px;
+      border-radius: 2px;
+      background: linear-gradient(180deg, var(--primary), var(--accent));
+    }
+    .causal-card .ccd-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .causal-card .ccd-stat {
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    .causal-card .ccd-stat-label {
+      color: var(--text-soft);
+      font-size: 11px;
+      letter-spacing: 0.2px;
+    }
+    .causal-card .ccd-stat-value {
+      font-weight: 600;
+      font-size: 16px;
+      color: var(--text);
+      margin-top: 2px;
+      font-variant-numeric: tabular-nums;
+    }
+    .causal-card .ccd-section {
+      margin: 12px 0 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .causal-card .ccd-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 3px 0;
+      font-size: 12px;
+    }
+    .causal-card .ccd-bar-row .name {
+      flex: 0 0 30%;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .causal-card .ccd-bar-track {
+      flex: 1;
+      height: 8px;
+      background: #f1f5f9;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .causal-card .ccd-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      border-radius: 4px;
+    }
+    .causal-card .ccd-bar-pct {
+      flex: 0 0 60px;
+      text-align: right;
+      color: var(--text-soft);
+      font-variant-numeric: tabular-nums;
+    }
+    .causal-card table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin: 6px 0 8px;
+    }
+    .causal-card th, .causal-card td {
+      border: 1px solid var(--border);
+      padding: 4px 8px;
+      text-align: left;
+    }
+    .causal-card th { background: #f8fafc; font-weight: 600; }
+    .causal-card .ccd-warnings {
+      background: #fef9c3;
+      border-left: 3px solid #f59e0b;
+      padding: 8px 12px;
+      border-radius: 6px;
+      color: #713f12;
+      margin-top: 6px;
+    }
+    .causal-card .ccd-warnings ul { margin: 4px 0 0 18px; padding: 0; }
+    .causal-card .ccd-warnings li { margin: 1px 0; line-height: 1.55; }
+    .causal-card details > summary {
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .causal-card .ccd-fallback {
+      background: #f8fafc;
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: var(--text-muted);
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .causal-card .ccd-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      background: #eef2ff;
+      color: var(--primary-dark);
+      margin-left: 6px;
+    }
+    .causal-card .ccd-cat-block {
+      margin: 8px 0 12px;
+      padding: 8px 10px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .causal-card .ccd-cat-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .causal-card .ccd-num-table {
+      font-size: 12px;
+    }
+    .causal-card .ccd-num-table td,
+    .causal-card .ccd-num-table th {
+      white-space: nowrap;
+    }
+
     /* Streaming caret */
     .caret {
       display: inline-block;
@@ -606,6 +781,36 @@
       cursor: not-allowed;
     }
     button#send svg { width: 18px; height: 18px; }
+    .attach-btn {
+      width: 38px;
+      height: 38px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+    }
+    .attach-btn:hover:not(:disabled) {
+      border-color: var(--primary);
+      color: var(--primary-dark);
+    }
+    .attach-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .attach-btn svg { width: 18px; height: 18px; }
+    .attach-btn.busy svg {
+      animation: spinIcon 1s linear infinite;
+      transform-origin: 50% 50%;
+    }
+    @keyframes spinIcon {
+      to { transform: rotate(360deg); }
+    }
     .composer-meta {
       display: flex;
       justify-content: space-between;
@@ -746,7 +951,11 @@
   <div class="composer-wrap">
     <div class="composer">
       <div class="composer-row">
-        <textarea id="input" rows="1" placeholder="描述你的因果问题，例如：广告投放对购买率的因果效应该如何估计？（Enter 发送，Shift+Enter 换行）"></textarea>
+        <button id="attach" class="attach-btn" title="上传 CSV 数据集（≤ 100MB）" aria-label="上传 CSV">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        </button>
+        <input id="fileInput" type="file" accept=".csv,text/csv" hidden />
+        <textarea id="input" rows="1" placeholder="描述你的因果问题；或点左侧附件上传 CSV 数据集进入数据驱动模式。"></textarea>
         <button id="send" disabled title="发送 (Enter)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
         </button>
@@ -775,6 +984,17 @@
     const SIDEBAR_EL = document.getElementById("sidebar");
     const SIDEBAR_TOGGLE = document.getElementById("sidebarToggle");
     const SIDEBAR_BACKDROP = document.getElementById("sidebarBackdrop");
+    const ATTACH_BTN = document.getElementById("attach");
+    const FILE_INPUT = document.getElementById("fileInput");
+
+    // 数据驱动模式：上传成功后给 Agent 发的"隐藏" user 消息前缀。
+    // 它会进入 LangGraph 历史（供后续轮次复用 profile 上下文），但前端在
+    // appendMessage / loadHistory 渲染时跳过、不显示给用户。
+    const HIDDEN_PREFIX = "[已上传数据: profile_summary=";
+    const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+    function isHiddenPrefix(text) {
+      return typeof text === "string" && text.startsWith(HIDDEN_PREFIX);
+    }
 
     // marked 配置：换行 = <br>、严格换行块
     if (window.marked && typeof marked.setOptions === "function") {
@@ -905,6 +1125,7 @@
       WELCOME_EL.style.display = "";
       setStatus("idle", "已切换会话");
       await loadHistory();
+      await loadUploadStatus();
       closeSidebarMobile();
     }
 
@@ -927,6 +1148,7 @@
         CHAT_EL.innerHTML = "";
         WELCOME_EL.style.display = "";
         await loadHistory();
+        await loadUploadStatus();
       }
       renderThreadList();
     }
@@ -963,11 +1185,34 @@
     function escapeHtml(s) {
       return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     }
+    // 在 marked.parse 之前把 ```causal-card type=xxx\n{...}\n``` 代码块
+    // 替换为占位 <div class="causal-card" data-type="xxx" data-payload="ESCAPED">；
+    // 这样：
+    // 1. 流式过程中 JSON 未闭合时正则匹配不到，卡片不会半渲染；
+    // 2. JSON 不直接进 DOM 文本，避免 marked 误把 < > 当 HTML 解析。
+    function escapeAttr(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+    function preprocessCausalCards(raw) {
+      return raw.replace(
+        /```causal-card\s+type=([\w-]+)\s*\n([\s\S]+?)\n```/g,
+        (_m, type, body) => {
+          return `<div class="causal-card" data-type="${escapeAttr(type)}"`
+            + ` data-payload="${escapeAttr(body)}"></div>`;
+        }
+      );
+    }
     function renderAssistantContent(raw) {
+      const prepped = preprocessCausalCards(raw);
       if (window.marked && typeof marked.parse === "function") {
-        try { return marked.parse(raw); } catch (_) {}
+        try { return marked.parse(prepped); } catch (_) {}
       }
-      return escapeHtml(raw).replace(/\n/g, "<br>");
+      return escapeHtml(prepped).replace(/\n/g, "<br>");
     }
 
     function renderMath(el) {
@@ -1022,13 +1267,229 @@
         });
       }
     }
+
+    // ----- causal-card 渲染（profile 卡片等结构化通道） -----
+    function fmtPct(x) {
+      if (x == null || isNaN(x)) return "—";
+      return (Number(x) * 100).toFixed(1) + "%";
+    }
+    function fmtNum(x) {
+      if (x == null || isNaN(x)) return "—";
+      const v = Number(x);
+      if (Math.abs(v) >= 1000) return v.toLocaleString();
+      return v.toFixed(Math.abs(v) < 1 ? 4 : 2);
+    }
+    function renderProfileCard(host, payload) {
+      const n_rows = payload.n_rows || 0;
+      const n_cols = payload.n_cols || 0;
+      const n_num = payload.n_numeric || 0;
+      const n_cat = payload.n_categorical || 0;
+      const n_other = Math.max(0, n_cols - n_num - n_cat);
+      const missing = payload.missing_overall || 0;
+      const dups = payload.duplicates || 0;
+      const cols = Array.isArray(payload.columns) ? payload.columns : [];
+      const corrs = Array.isArray(payload.top_correlations) ? payload.top_correlations : [];
+      const warnings = Array.isArray(payload.warnings) ? payload.warnings : [];
+
+      // 缺失率 top 5（按 missing_rate 降序）
+      const topMissing = cols
+        .filter(c => (c.missing_rate || 0) > 0)
+        .sort((a, b) => (b.missing_rate || 0) - (a.missing_rate || 0))
+        .slice(0, 5);
+
+      // 列类型分布
+      const distItems = [
+        { label: "数值", n: n_num, color: "var(--primary)" },
+        { label: "分类", n: n_cat, color: "var(--accent)" },
+        { label: "其它", n: n_other, color: "#f59e0b" },
+      ];
+
+      let html = "";
+      html += `<h4>数据画像 <span class="ccd-pill">${n_rows.toLocaleString()} × ${n_cols}</span></h4>`;
+
+      html += `<div class="ccd-grid">
+        <div class="ccd-stat"><div class="ccd-stat-label">行数</div><div class="ccd-stat-value">${n_rows.toLocaleString()}</div></div>
+        <div class="ccd-stat"><div class="ccd-stat-label">列数</div><div class="ccd-stat-value">${n_cols}</div></div>
+        <div class="ccd-stat"><div class="ccd-stat-label">数值列</div><div class="ccd-stat-value">${n_num}</div></div>
+        <div class="ccd-stat"><div class="ccd-stat-label">分类列</div><div class="ccd-stat-value">${n_cat}</div></div>
+        <div class="ccd-stat"><div class="ccd-stat-label">整体缺失率</div><div class="ccd-stat-value">${fmtPct(missing)}</div></div>
+        <div class="ccd-stat"><div class="ccd-stat-label">重复行</div><div class="ccd-stat-value">${dups}</div></div>
+      </div>`;
+
+      html += `<div class="ccd-section">列类型分布</div>`;
+      const totalCols = Math.max(1, n_cols);
+      distItems.forEach(item => {
+        const ratio = item.n / totalCols;
+        html += `<div class="ccd-bar-row">
+          <div class="name">${escapeHtml(item.label)}</div>
+          <div class="ccd-bar-track"><div class="ccd-bar-fill" style="width:${(ratio * 100).toFixed(1)}%; background:${item.color}"></div></div>
+          <div class="ccd-bar-pct">${item.n} / ${n_cols}</div>
+        </div>`;
+      });
+
+      if (topMissing.length > 0) {
+        html += `<div class="ccd-section">缺失率 Top ${topMissing.length}</div>`;
+        topMissing.forEach(c => {
+          const r = c.missing_rate || 0;
+          html += `<div class="ccd-bar-row">
+            <div class="name" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</div>
+            <div class="ccd-bar-track"><div class="ccd-bar-fill" style="width:${(r * 100).toFixed(1)}%; background:#f59e0b"></div></div>
+            <div class="ccd-bar-pct">${fmtPct(r)}</div>
+          </div>`;
+        });
+      }
+
+      const numericCols = cols.filter(c => c.dtype === "numeric");
+      if (numericCols.length > 0) {
+        html += `<div class="ccd-section">数值列分布（${numericCols.length} 列）</div>`;
+        html += `<table class="ccd-num-table"><thead><tr>
+          <th>列名</th><th>均值</th><th>标准差</th><th>中位数</th><th>范围</th>
+        </tr></thead><tbody>`;
+        numericCols.forEach(c => {
+          const st = c.stats || {};
+          const lo = st.min, hi = st.max;
+          const rangeStr = (lo != null && hi != null) ? `[${fmtNum(lo)}, ${fmtNum(hi)}]` : "—";
+          html += `<tr>
+            <td title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</td>
+            <td>${fmtNum(st.mean)}</td>
+            <td>${fmtNum(st.std)}</td>
+            <td>${fmtNum(st.p50)}</td>
+            <td>${rangeStr}</td>
+          </tr>`;
+        });
+        html += `</tbody></table>`;
+      }
+
+      const catCols = cols.filter(c => c.dtype === "categorical" || c.dtype === "boolean");
+      if (catCols.length > 0) {
+        html += `<div class="ccd-section">分类 / 二值列取值分布</div>`;
+        catCols.forEach(c => {
+          const tops = (c.stats && c.stats.top_values) ? c.stats.top_values : [];
+          if (tops.length === 0) return;
+          html += `<div class="ccd-cat-block"><div class="ccd-cat-title">${escapeHtml(c.name)}</div>`;
+          tops.forEach(t => {
+            const ratio = t.ratio != null ? Number(t.ratio) : 0;
+            html += `<div class="ccd-bar-row">
+              <div class="name" title="${escapeHtml(String(t.value))}">${escapeHtml(String(t.value))}</div>
+              <div class="ccd-bar-track"><div class="ccd-bar-fill" style="width:${(ratio * 100).toFixed(1)}%"></div></div>
+              <div class="ccd-bar-pct">${fmtPct(ratio)}</div>
+            </div>`;
+          });
+          html += `</div>`;
+        });
+      }
+
+      if (corrs.length > 0) {
+        const head = corrs.slice(0, 10);
+        html += `<div class="ccd-section">数值列相关性 Top ${head.length}</div>`;
+        html += `<table><thead><tr><th>变量 A</th><th>变量 B</th><th>Pearson</th><th>Spearman</th></tr></thead><tbody>`;
+        head.forEach(c => {
+          html += `<tr>
+            <td>${escapeHtml(c.a)}</td>
+            <td>${escapeHtml(c.b)}</td>
+            <td>${fmtNum(c.pearson)}</td>
+            <td>${fmtNum(c.spearman)}</td>
+          </tr>`;
+        });
+        html += `</tbody></table>`;
+      }
+
+      if (warnings.length > 0) {
+        const visible = warnings.slice(0, 8);
+        const more = warnings.slice(8);
+        html += `<div class="ccd-warnings"><div><strong>数据警告（${warnings.length} 条）</strong></div><ul>`;
+        visible.forEach(w => { html += `<li>${escapeHtml(w)}</li>`; });
+        html += `</ul>`;
+        if (more.length > 0) {
+          html += `<details><summary>展开剩余 ${more.length} 条</summary><ul>`;
+          more.forEach(w => { html += `<li>${escapeHtml(w)}</li>`; });
+          html += `</ul></details>`;
+        }
+        html += `</div>`;
+      }
+
+      host.innerHTML = html;
+    }
+
+    function hasApiProfileCard() {
+      return CHAT_EL.querySelector('.causal-card[data-source="api"]') !== null;
+    }
+
+    async function fetchProfile(tid) {
+      try {
+        const res = await fetch(
+          `${API_BASE}/upload/${encodeURIComponent(tid)}/profile`
+        );
+        if (!res.ok) return null;
+        return await res.json();
+      } catch (err) {
+        console.warn("拉取 profile 失败：", err);
+        return null;
+      }
+    }
+
+    /** 方案 A：用 API 返回的完整 profile 直接插入卡片，不依赖 LLM 复述 JSON。 */
+    function appendProfileCard(profile) {
+      if (!profile) return;
+      WELCOME_EL.style.display = "none";
+      const msg = document.createElement("div");
+      msg.className = "msg assistant";
+      const avatar = document.createElement("div");
+      avatar.className = "avatar assistant";
+      avatar.textContent = "C";
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      const card = document.createElement("div");
+      card.className = "causal-card";
+      card.dataset.type = "profile";
+      card.dataset.source = "api";
+      renderProfileCard(card, profile);
+      card.dataset.processed = "true";
+      bubble.appendChild(card);
+      msg.appendChild(avatar);
+      msg.appendChild(bubble);
+      CHAT_EL.appendChild(msg);
+      msg.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+
+    function renderCausalCards(el) {
+      if (!el) return;
+      const cards = el.querySelectorAll('.causal-card[data-payload]');
+      cards.forEach(card => {
+        if (card.dataset.processed === "true") return;
+        const type = card.dataset.type || "";
+        // 已有 API 卡片时，跳过 LLM 输出的 profile 卡片，避免重复
+        if (type === "profile" && hasApiProfileCard()) {
+          card.remove();
+          return;
+        }
+        const rawPayload = card.dataset.payload || "";
+        try {
+          const payload = JSON.parse(rawPayload);
+          if (type === "profile") {
+            renderProfileCard(card, payload);
+          } else {
+            // 未知类型：原样 JSON 兜底
+            card.innerHTML = `<div class="ccd-fallback">未知卡片类型 type=${escapeHtml(type)}\n${escapeHtml(rawPayload)}</div>`;
+          }
+          card.dataset.processed = "true";
+          // 移除已消费的 payload，避免每次重渲染时被重复处理
+          card.removeAttribute('data-payload');
+        } catch (e) {
+          console.warn("causal-card 解析失败:", e);
+          card.innerHTML = `<div class="ccd-fallback">数据卡片解析失败：${escapeHtml(String(e.message || e))}\n${escapeHtml(rawPayload)}</div>`;
+          card.dataset.processed = "true";
+          card.removeAttribute('data-payload');
+        }
+      });
+    }
     function appendMessage(role, content, { streaming = false } = {}) {
       WELCOME_EL.style.display = "none";
       const msg = document.createElement("div");
       msg.className = "msg " + role;
       const avatar = document.createElement("div");
       avatar.className = "avatar " + role;
-      avatar.textContent = role === "user" ? "我" : "C";
+      avatar.textContent = role === "user" ? "我" : (role === "system" ? "i" : "C");
       const bubble = document.createElement("div");
       bubble.className = "bubble";
       if (role === "assistant") {
@@ -1038,7 +1499,11 @@
           bubble.innerHTML = renderAssistantContent(content);
           renderMath(bubble);
           renderMermaid(bubble);
+          renderCausalCards(bubble);
         }
+      } else if (role === "system") {
+        // 系统提示：纯文本中央居中胶囊，不解析 markdown，不出头像
+        bubble.textContent = content;
       } else {
         bubble.textContent = content;
       }
@@ -1060,12 +1525,17 @@
           WELCOME_EL.style.display = "none";
           CHAT_EL.innerHTML = "";
           for (const m of messages) {
+            // 数据上传的"隐藏" user 消息（profile_summary 前缀）只回灌给 LLM
+            // 作为上下文，不在 UI 中呈现给用户。
+            if (m.role === "user" && isHiddenPrefix(m.content)) continue;
             appendMessage(m.role, m.content);
           }
           // 若历史里有用户消息但本地 title 还是默认值，则用第一条用户消息作为标题
           const t = findThread(threadId);
           if (t && (t.title === "新对话" || !t.title)) {
-            const firstUser = messages.find(m => m.role === "user");
+            const firstUser = messages.find(
+              m => m.role === "user" && !isHiddenPrefix(m.content)
+            );
             if (firstUser) {
               upsertThread(threadId, { title: truncateTitle(firstUser.content) });
               updateThreadChip();
@@ -1078,6 +1548,97 @@
       }
     }
 
+    // ----- 上传 CSV / 状态恢复 -----
+    async function loadUploadStatus() {
+      if (!threadId) return;
+      try {
+        const res = await fetch(
+          `${API_BASE}/upload/${encodeURIComponent(threadId)}/status`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.uploaded) {
+          appendMessage(
+            "system",
+            `当前会话已加载数据集（${data.rows ?? "?"} 行 × ${data.cols ?? "?"} 列）`
+          );
+          if (!hasApiProfileCard()) {
+            const profile = await fetchProfile(threadId);
+            if (profile) appendProfileCard(profile);
+          }
+        }
+      } catch (err) {
+        console.warn("加载上传状态失败：", err);
+      }
+    }
+
+    async function uploadCsv(file) {
+      if (!file) return;
+      const name = String(file.name || "");
+      if (!/\.csv$/i.test(name)) {
+        appendMessage("system", `不支持的文件类型：${name}。请上传 .csv 文件。`);
+        return;
+      }
+      if (file.size > MAX_UPLOAD_BYTES) {
+        appendMessage(
+          "system",
+          `文件超过 100 MB 上限（${(file.size / 1024 / 1024).toFixed(1)} MB），请先抽样后再上传。`
+        );
+        return;
+      }
+      if (sending) {
+        appendMessage("system", "请等待当前回答完成后再上传。");
+        return;
+      }
+      ATTACH_BTN.classList.add("busy");
+      ATTACH_BTN.disabled = true;
+      const tip = appendMessage("system", `正在上传 ${name} 并生成数据画像...`);
+      setStatus("busy", "上传 / 画像中...");
+
+      const form = new FormData();
+      form.append("thread_id", threadId);
+      form.append("file", file);
+
+      try {
+        const res = await fetch(`${API_BASE}/upload/csv`, {
+          method: "POST",
+          body: form,
+        });
+        if (!res.ok) {
+          let detail = "";
+          try { const j = await res.json(); detail = j.detail || ""; } catch (_) {}
+          throw new Error(detail || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        const ps = data.profile_summary || {};
+        tip.textContent =
+          `已上传 ${name}（${data.rows ?? "?"} 行 × ${data.cols ?? "?"} 列，`
+          + `编码 ${data.encoding}）`;
+        // 方案 A：直接从 API 拉完整 profile 渲染卡片（含数值分布 / 分类频次）
+        const profile = await fetchProfile(threadId);
+        if (profile) {
+          if (hasApiProfileCard()) {
+            const old = CHAT_EL.querySelector('.causal-card[data-source="api"]');
+            if (old) old.closest(".msg")?.remove();
+          }
+          appendProfileCard(profile);
+        }
+        setStatus("busy", "正在生成文字概览...");
+        // 隐藏 user 消息：只让 Agent 输出 2-6 行文字概览 + 下一步建议（不再输出 causal-card）
+        const summaryStr = JSON.stringify(ps);
+        const prefix = `${HIDDEN_PREFIX}${summaryStr}] 我刚上传了一份 CSV 数据集。数据画像卡片已由系统渲染，请根据工具摘要给出简要文字概览（含 2-3 列数值范围要点），并询问我希望做哪种因果分析；不要输出 causal-card。`;
+        await sendMessage(prefix, { hidden: true });
+      } catch (err) {
+        console.error("上传失败：", err);
+        tip.textContent = `上传失败：${err.message || err}`;
+        setStatus("error", "上传失败");
+      } finally {
+        ATTACH_BTN.classList.remove("busy");
+        ATTACH_BTN.disabled = false;
+        FILE_INPUT.value = "";
+      }
+    }
+
     function truncateTitle(s) {
       const cleaned = String(s || "").replace(/\s+/g, " ").trim();
       return cleaned.length > 24 ? cleaned.slice(0, 24) + "…" : (cleaned || "新对话");
@@ -1087,23 +1648,25 @@
     let sending = false;
     let abortCtrl = null;
 
-    async function sendMessage(text) {
+    async function sendMessage(text, { hidden = false } = {}) {
       if (!text.trim() || sending) return;
       sending = true;
       SEND_BTN.disabled = true;
       setStatus("busy", "正在思考...");
 
-      // 若该会话还没标题，用第一条用户消息作为标题
+      // 隐藏前缀（数据上传触发）不作为会话标题，也不创建 user 气泡
       const cur = findThread(threadId);
       const patch = { updatedAt: Date.now() };
-      if (!cur || !cur.title || cur.title === "新对话") {
+      if (!hidden && (!cur || !cur.title || cur.title === "新对话")) {
         patch.title = truncateTitle(text);
       }
       upsertThread(threadId, patch);
       updateThreadChip();
       renderThreadList();
 
-      appendMessage("user", text);
+      if (!hidden) {
+        appendMessage("user", text);
+      }
       const bubble = appendMessage("assistant", "", { streaming: true });
 
       abortCtrl = new AbortController();
@@ -1139,6 +1702,7 @@
         bubble.innerHTML = renderAssistantContent(acc || "（助手未返回内容）");
         renderMath(bubble);
         renderMermaid(bubble);
+        renderCausalCards(bubble);
         setStatus("idle", "就绪 · 等待提问");
       } catch (err) {
         console.error(err);
@@ -1203,11 +1767,24 @@
     });
     SIDEBAR_BACKDROP.addEventListener("click", closeSidebarMobile);
 
+    // ----- 附件上传 -----
+    ATTACH_BTN.addEventListener("click", () => {
+      if (ATTACH_BTN.disabled) return;
+      FILE_INPUT.click();
+    });
+    FILE_INPUT.addEventListener("change", (e) => {
+      const file = (e.target.files && e.target.files[0]) || null;
+      if (file) uploadCsv(file);
+    });
+
     // 启动
     setStatus("idle", "就绪 · 等待提问");
     autoSize();
     renderThreadList();
-    loadHistory();
+    (async () => {
+      await loadHistory();
+      await loadUploadStatus();
+    })();
   </script>
 </body>
 </html>

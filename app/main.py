@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from api.v1 import chat
 from api.v1 import oss
+from api.v1 import upload
 from common.logger import setup_logging
 
 # 初始化日志配置
@@ -30,6 +31,7 @@ app.add_middleware(
 # 2.挂载路由
 app.include_router(chat.router, prefix="/api/v1", tags=["对话"])
 app.include_router(oss.router, prefix="/api/v1", tags=["申请上传签名url"])
+app.include_router(upload.router, prefix="/api/v1", tags=["数据上传"])
 
 # 3.挂载前端资源
 static_dir = os.path.join(os.path.dirname(__file__), "static")
