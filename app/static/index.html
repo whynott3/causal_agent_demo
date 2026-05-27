@@ -687,6 +687,107 @@
       white-space: nowrap;
     }
 
+    /* ---------- algo-choice 卡片 ---------- */
+    .causal-card .algo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin: 8px 0 4px;
+    }
+    .algo-card {
+      position: relative;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px 10px;
+      background: #fff;
+      cursor: pointer;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .algo-card:hover {
+      border-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.12);
+    }
+    .algo-card:active { transform: translateY(1px); }
+    .algo-card.recommended {
+      border-color: var(--primary);
+      background: linear-gradient(180deg, #f5f8ff 0%, #ffffff 60%);
+    }
+    .algo-card.disabled {
+      opacity: 0.6;
+    }
+    .algo-card .algo-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .algo-card .algo-name {
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--text);
+    }
+    .algo-card .priority-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #e0e7ff;
+      color: var(--primary-dark);
+      white-space: nowrap;
+    }
+    .algo-card.recommended .priority-badge {
+      background: var(--primary);
+      color: #fff;
+    }
+    .algo-card .precond-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .algo-card .algo-reason {
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: var(--text-soft);
+    }
+    .algo-card .algo-warnings {
+      font-size: 11.5px;
+      color: #92400e;
+      background: #fef9c3;
+      padding: 5px 8px;
+      border-radius: 6px;
+      margin-top: 2px;
+    }
+    .algo-card .algo-warnings ul { margin: 2px 0 0 16px; padding: 0; }
+    .causal-card .algo-blocking {
+      background: #fef2f2;
+      border-left: 3px solid #ef4444;
+      padding: 10px 14px;
+      border-radius: 6px;
+      color: #7f1d1d;
+      margin: 6px 0 8px;
+    }
+    .causal-card .algo-blocking strong { color: #991b1b; }
+    .causal-card .algo-not-recommended {
+      margin-top: 6px;
+    }
+    .causal-card .algo-not-recommended summary {
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 4px 0;
+    }
+    .causal-card .algo-not-recommended ul {
+      margin: 4px 0 0 18px;
+      padding: 0;
+      color: var(--text-soft);
+      font-size: 12px;
+    }
+
     /* Streaming caret */
     .caret {
       display: inline-block;
@@ -1415,6 +1516,122 @@
       return CHAT_EL.querySelector('.causal-card[data-source="api"]') !== null;
     }
 
+    // ----- algo-choice 卡片渲染（Sprint 3 阶段二） -----
+    function renderAlgoChoiceCard(host, payload) {
+      const sig = payload.data_signals || {};
+      const recs = Array.isArray(payload.recommendations) ? payload.recommendations : [];
+      const notRec = Array.isArray(payload.not_recommended) ? payload.not_recommended : [];
+      const gwarn = Array.isArray(payload.global_warnings) ? payload.global_warnings : [];
+      const blocking = payload.blocking === true;
+
+      let html = "";
+      html += `<h4>因果发现算法推荐 <span class="ccd-pill">`
+        + `${sig.n_rows ?? "?"} × ${sig.n_cols ?? "?"}</span></h4>`;
+
+      // 关键信号摘要（与卡片本身的推荐互相印证）
+      const signalBits = [];
+      if (sig.n_numeric != null) signalBits.push(`数值列 ${sig.n_numeric}`);
+      if (sig.n_categorical != null) signalBits.push(`分类列 ${sig.n_categorical}`);
+      if (sig.missing_overall != null) signalBits.push(`缺失率 ${fmtPct(sig.missing_overall)}`);
+      if (sig.suspected_timeseries) signalBits.push("疑似时序");
+      if (sig.user_mentions_latent_confounding) signalBits.push("用户提示隐藏混杂");
+      if (signalBits.length > 0) {
+        html += `<div class="ccd-section">数据信号</div>`;
+        html += `<div style="font-size:12.5px;color:var(--text-soft);margin-bottom:6px">`
+          + signalBits.map(escapeHtml).join(" · ") + `</div>`;
+      }
+
+      if (blocking) {
+        const reason = payload.blocking_reason || "数据条件不适合做因果发现。";
+        html += `<div class="algo-blocking"><strong>不建议直接做因果发现：</strong>`
+          + `<div>${escapeHtml(reason)}</div></div>`;
+        if (gwarn.length > 0) {
+          html += `<div class="ccd-warnings"><ul>`;
+          gwarn.forEach(w => { html += `<li>${escapeHtml(w)}</li>`; });
+          html += `</ul></div>`;
+        }
+        host.innerHTML = html;
+        host.dataset.blocking = "true";
+        return;
+      }
+
+      if (gwarn.length > 0) {
+        html += `<div class="ccd-warnings" style="margin-bottom:8px"><ul>`;
+        gwarn.forEach(w => { html += `<li>${escapeHtml(w)}</li>`; });
+        html += `</ul></div>`;
+      }
+
+      if (recs.length > 0) {
+        html += `<div class="ccd-section">候选算法（点击选择）</div>`;
+        html += `<div class="algo-grid">`;
+        recs.forEach(r => {
+          const algo = String(r.algorithm || "");
+          const priority = r.priority != null ? Number(r.priority) : 99;
+          const recommended = priority === 1;
+          const okFlag = r.preconditions_ok !== false;
+          const cls = ["algo-card"];
+          if (recommended) cls.push("recommended");
+          if (!okFlag) cls.push("disabled");
+          html += `<div class="${cls.join(" ")}" data-algo="${escapeAttr(algo)}" data-precond="${okFlag ? "1" : "0"}">`;
+          html += `<div class="algo-header">`;
+          html += `<span class="algo-name">${escapeHtml(algo)}</span>`;
+          html += `<span class="priority-badge">#${priority} ${recommended ? "首选" : "候选"}</span>`;
+          html += `</div>`;
+          if (!okFlag) {
+            html += `<div><span class="precond-badge">前提未满足</span></div>`;
+          }
+          html += `<div class="algo-reason">${escapeHtml(String(r.reason || ""))}</div>`;
+          const ws = Array.isArray(r.warnings) ? r.warnings : [];
+          if (ws.length > 0) {
+            html += `<div class="algo-warnings"><strong>注意：</strong><ul>`;
+            ws.forEach(w => { html += `<li>${escapeHtml(w)}</li>`; });
+            html += `</ul></div>`;
+          }
+          html += `</div>`;
+        });
+        html += `</div>`;
+      }
+
+      if (notRec.length > 0) {
+        html += `<details class="algo-not-recommended"><summary>不推荐的算法（${notRec.length}）</summary><ul>`;
+        notRec.forEach(r => {
+          html += `<li><strong>${escapeHtml(String(r.algorithm || ""))}</strong>：`
+            + `${escapeHtml(String(r.reason || ""))}</li>`;
+        });
+        html += `</ul></details>`;
+      }
+
+      host.innerHTML = html;
+      bindAlgoCardClicks(host);
+    }
+
+    function bindAlgoCardClicks(host) {
+      const cards = host.querySelectorAll('.algo-card[data-algo]');
+      cards.forEach(card => {
+        if (card.dataset.bound === "1") return;
+        card.dataset.bound = "1";
+        card.addEventListener("click", () => {
+          if (sending) return;
+          const algo = card.getAttribute("data-algo") || "";
+          if (!algo) return;
+          const precondOk = card.getAttribute("data-precond") === "1";
+          if (!precondOk) {
+            const proceed = confirm(
+              `${algo} 的前提条件未完全满足，仍然要选择该算法吗？`
+            );
+            if (!proceed) return;
+          }
+          // 选中态：把同一张 algo-choice 卡里的其它卡置灰，避免重复点击
+          const sib = card.closest('.causal-card')?.querySelectorAll('.algo-card');
+          if (sib) sib.forEach(c => { c.style.pointerEvents = "none"; c.style.opacity = "0.55"; });
+          card.style.opacity = "1";
+          card.style.borderColor = "var(--primary)";
+          const text = `我选择 ${algo} 算法进行因果发现`;
+          sendMessage(text);
+        });
+      });
+    }
+
     async function fetchProfile(tid) {
       try {
         const res = await fetch(
@@ -1455,6 +1672,8 @@
     function renderCausalCards(el) {
       if (!el) return;
       const cards = el.querySelectorAll('.causal-card[data-payload]');
+      // 同一回答里 algo-choice 卡片最多一张：第二张及之后丢弃
+      let algoSeen = false;
       cards.forEach(card => {
         if (card.dataset.processed === "true") return;
         const type = card.dataset.type || "";
@@ -1463,11 +1682,17 @@
           card.remove();
           return;
         }
+        if (type === "algo-choice") {
+          if (algoSeen) { card.remove(); return; }
+          algoSeen = true;
+        }
         const rawPayload = card.dataset.payload || "";
         try {
           const payload = JSON.parse(rawPayload);
           if (type === "profile") {
             renderProfileCard(card, payload);
+          } else if (type === "algo-choice") {
+            renderAlgoChoiceCard(card, payload);
           } else {
             // 未知类型：原样 JSON 兜底
             card.innerHTML = `<div class="ccd-fallback">未知卡片类型 type=${escapeHtml(type)}\n${escapeHtml(rawPayload)}</div>`;

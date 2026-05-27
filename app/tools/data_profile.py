@@ -28,6 +28,8 @@ import numpy as np
 import pandas as pd
 from langchain_core.tools import tool
 
+from common.runtime_context import get_current_thread_id
+
 
 # ---------------------------------------------------------------------------
 # 常量
@@ -309,7 +311,7 @@ def _safe_thread_dir(thread_id: str) -> Optional[Path]:
 
 
 @tool
-def summarize_uploaded_dataset(thread_id: str) -> str:
+def summarize_uploaded_dataset() -> str:
     """读取当前会话已上传 CSV 的数据画像，输出一段紧凑 Markdown 摘要
     （行 / 列 / 数值列占比 / 缺失率 / 主要警告）。
 
@@ -317,19 +319,31 @@ def summarize_uploaded_dataset(thread_id: str) -> str:
     语言概览；详细 profile 由前端通过卡片渲染，因此正文**不要**重复
     堆数值表。
 
-    Args:
-        thread_id: 当前会话 ID（与 /chat/stream 使用的 thread_id 一致）。
+    工具内部会自动读取当前会话 ID（由后端运行时上下文注入），**LLM 调用本工具
+    时不需要也不应传任何参数**。
 
     Returns:
         Markdown 文本：5-8 行关键信号；若尚未上传或读取失败，返回提示。
     """
+    thread_id = get_current_thread_id()
+    if thread_id is None:
+        return (
+            "未能读取当前会话上下文。该工具应由聊天接口在会话中调用；"
+            "若是直接测试，请在测试中通过 bind_thread_id 绑定会话 ID。"
+        )
+
     thread_dir = _safe_thread_dir(thread_id)
     if thread_dir is None:
         return "thread_id 不合法，无法读取数据集画像。"
 
     profile_path = thread_dir / "profile.json"
     if not profile_path.exists():
-        return "当前会话尚未上传 CSV 数据集；请提示用户先通过附件按钮上传 .csv。"
+        return (
+            "未能从当前会话目录中找到数据画像文件；可能是用户尚未上传 CSV，"
+            "或会话 ID 与上传时不一致。详细数据画像已由前端在上方卡片中渲染——"
+            "若上方已能看到「数据画像」卡片，请直接基于卡片信息回答用户的问题，"
+            "**禁止**对用户说「无法展示统计 / 读不到数据集」。"
+        )
 
     try:
         data = json.loads(profile_path.read_text(encoding="utf-8"))

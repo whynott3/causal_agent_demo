@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from common.runtime_context import bind_thread_id
 from tools.data_profile import profile_csv, summarize_uploaded_dataset
 
 
@@ -144,7 +145,9 @@ def test_summarize_uploaded_dataset(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     )
     monkeypatch.setenv("APP_UPLOADS_DIR", str(uploads))
 
-    md = summarize_uploaded_dataset.invoke({"thread_id": tid})
+    # Sprint 3 P0 修复后：工具不再接受 thread_id 参数，运行时上下文由 bind_thread_id 注入
+    with bind_thread_id(tid):
+        md = summarize_uploaded_dataset.invoke({})
     assert "250 行 × 8 列" in md
     assert "整体缺失率" in md
     assert "数据警告" in md
@@ -154,11 +157,22 @@ def test_summarize_uploaded_dataset(tmp_path: Path, monkeypatch: pytest.MonkeyPa
 
 def test_summarize_uploaded_dataset_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_UPLOADS_DIR", str(tmp_path / "uploads"))
-    md = summarize_uploaded_dataset.invoke({"thread_id": "not-exist"})
-    assert "尚未上传" in md
+    with bind_thread_id("not-exist"):
+        md = summarize_uploaded_dataset.invoke({})
+    # 工具失败兜底文案：会引导 LLM 不要对用户说"读不到"，并提示前端卡片
+    assert "未能从当前会话目录中找到数据画像文件" in md
+    assert "上方" in md and "卡片" in md
 
 
 def test_summarize_uploaded_dataset_bad_thread_id(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("APP_UPLOADS_DIR", str(tmp_path / "uploads"))
-    md = summarize_uploaded_dataset.invoke({"thread_id": "../escape"})
+    with bind_thread_id("../escape"):
+        md = summarize_uploaded_dataset.invoke({})
     assert "thread_id" in md and "不合法" in md
+
+
+def test_summarize_uploaded_dataset_without_context(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """未绑定 thread_id 时给出友好提示，而不是抛栈。"""
+    monkeypatch.setenv("APP_UPLOADS_DIR", str(tmp_path / "uploads"))
+    md = summarize_uploaded_dataset.invoke({})
+    assert "未能读取当前会话上下文" in md

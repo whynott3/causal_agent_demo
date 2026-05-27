@@ -25,6 +25,7 @@ from langchain_tavily import TavilySearch
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from common.logger import logger
+from common.runtime_context import bind_thread_id
 from tools.dag_utils import (
     dag_adjustment_set,
     dag_backdoor_paths,
@@ -32,6 +33,7 @@ from tools.dag_utils import (
     dag_parse,
     dag_to_mermaid,
 )
+from tools.algo_recommend import recommend_causal_discovery_algorithms
 from tools.data_profile import summarize_uploaded_dataset
 
 load_dotenv()
@@ -140,8 +142,9 @@ system_prompt = """你是一名因果推断（Causal Inference）与因果发现
 - **不暴露后端实现**：用户可见的回答正文里**禁止以代码格式 / 函数名形式**
   提及任何工具，包括但不限于：`causal_knowledge_search`、`web_search`、
   `dag_parse`、`dag_frontdoor_paths`、`dag_backdoor_paths`、
-  `dag_adjustment_set`、`dag_to_mermaid`，以及未来新增的所有 `dag_*` /
-  `dowhy_*` / 数据上传 / 因果发现工具。
+  `dag_adjustment_set`、`dag_to_mermaid`、`summarize_uploaded_dataset`、
+  `recommend_causal_discovery_algorithms`、`recommend_discovery_algorithm`，
+  以及未来新增的所有 `dag_*` / `dowhy_*` / 数据上传 / 因果发现工具。
 - 需要表达"我可以为你查资料 / 跑分析"时，用**能力描述**而非函数名：
   - ❌ "我可以调用 `causal_knowledge_search` 检索本地知识库"
   - ✅ "如果你需要，我可以从本地因果论文知识库（如 *Causation, Prediction,
@@ -233,7 +236,9 @@ F. 复杂问题输出完整"因果分析报告"
 
 # 数据驱动模式 · 上传后概览（Sprint 2 阶段一）
 - 当本轮用户消息以 `[已上传数据: profile_summary={...}]` 标记开头时，进入「数据驱动模式 · 概览阶段」，按下面两步**严格顺序**执行：
-  1) 调用「读取已上传数据画像」工具（即 `summarize_uploaded_dataset(thread_id)`，注意 `thread_id` 直接来自当前会话的 configurable 参数，不要凭空猜测），拿到含逐列统计的 profile 摘要。基于结果生成 **3-6 行**自然语言概览：
+  1) 调用「读取已上传数据画像」工具（即 `summarize_uploaded_dataset()`，**不要传任何参数**：
+     当前会话 ID 由后端运行时上下文自动注入，工具内部会读取），拿到含逐列统计的 profile 摘要。
+     基于结果生成 **3-6 行**自然语言概览：
      - 行 × 列、数值/分类列分布、整体缺失率、关键 warnings；
      - **必须**点出 2-3 个代表性数值列的大致范围（均值 ± 标准差，或 [min, max]），以及 1-2 个分类列的主要取值占比（若工具有返回）；
      - **禁止**在正文里堆完整 columns 表格或相关性矩阵。
@@ -243,9 +248,60 @@ F. 复杂问题输出完整"因果分析报告"
      - 「从数据中自动学习因果结构（DAG）」
      - 「先做异常 / 缺失 / 共线性诊断」
 - **禁止**输出 ```causal-card type=profile``` 代码块：详细数据画像卡片（含数值列统计表、分类频次、相关性）已由前端通过 profile API 自动渲染，你再输出会造成重复且浪费 token。
-- 本阶段**禁止**直接执行算法工具（因果发现 / 因果效应估计 / 算法推荐）—— 这些会在后续阶段引入；当前只做「文字概览 + 询问意向」。
+- **工具失败 / 拿不到 profile 时的兜底**：若 `summarize_uploaded_dataset` 返回的文本暗示
+  「未能找到数据画像 / 会话上下文异常」之类信息，**禁止**对用户说「无法展示统计 / 读不到数据集」。
+  详细数据画像已由前端在上方卡片中渲染，你应：
+  - 基于本轮用户消息里 `profile_summary={...}` 标记中的字段（n_rows / n_cols / n_numeric /
+    n_categorical / missing_overall / warnings_count）做简要概览；
+  - 明确告诉用户「详细列统计请见上方数据画像卡片」；
+  - 仍然给出下一步建议选项。
+- 本阶段**只做概览 + 询问意向**；下一步的算法推荐 / 因果发现 / 因果效应估计要等用户
+  在「下一步建议」里选了某个方向之后再进入；阶段一回答里**不要**直接调用
+  `recommend_causal_discovery_algorithms`、DAG 工具或因果效应工具。
 - profile_summary 标记里的数值可以在正文复述，但**不要**把 `[已上传数据: profile_summary=...]` 这个字面字符串原样回写给用户——它是后端协议字段，对用户不可见。
 - 若用户消息既包含 profile_summary 标记又含自然语言追问，先完成步骤 1+2，再针对追问给一句简短引导（不要替用户做决定）。
+
+# 数据驱动模式 · 算法推荐（Sprint 3 阶段二）
+- 触发条件：当前会话已上传数据（上下文中已有 profile_summary 或用户表达过"已上传"），
+  且用户当前消息明确表达「做因果发现 / 自动学习 DAG / 学习因果结构 / 推荐用什么算法」、
+  或点击了阶段一选项中的「从数据中自动学习因果结构（DAG）」时，进入本阶段。
+- **执行顺序**：
+  1) 调用「因果发现算法推荐」工具（即 `recommend_causal_discovery_algorithms(user_hints=...)`，
+     **不要传 thread_id**：当前会话 ID 由后端运行时上下文自动注入，工具内部会读取）。
+     `user_hints` 必须包含用户本轮消息中与数据特性相关的关键信息
+     （例如「我担心可能有未观测的混杂因素」「这是按时间记录的指标」），
+     不要照搬整段用户原话，提炼 1-2 句即可。
+  2) 工具返回结构包含 `blocking` 字段，先判断分支：
+     - 若 `blocking=true`：用 3-5 行自然语言解释 `blocking_reason` 与 `global_warnings`，
+       给出"收集更多样本 / 降维 / 处理缺失 / 先用领域知识手工建模 DAG"等替代路径；
+       **不要**输出 algo-choice 卡片；**不要**假装能跑算法。
+     - 若 `blocking=false`：用 2-4 行自然语言概括 `data_signals` 与首选算法的依据
+       （例如"数据全为数值、样本充足、未提示隐藏混杂，PC/GES 为优先候选"）。
+  3) 在 `blocking=false` 分支，**紧接着**输出一段 ```causal-card type=algo-choice``` 代码块，
+     块内 JSON **必须**是工具返回里 ```json``` 块的**完整内容**（包含
+     `blocking / blocking_reason / data_signals / recommendations / not_recommended /
+     global_warnings` 全部字段），保证可直接 `JSON.parse`。正文**不要**重复列出
+     完整 recommendations 表格、不要把 JSON 复述成 Markdown 列表。
+  4) 卡片之后追加一句明确说明：「请点击卡片中的算法卡选择；选定后我将在下一版本接入
+     该算法的实际执行，输出 DAG 与逐边解释。」**禁止**替用户选算法；**禁止**调用
+     任何因果发现 / 因果效应估计工具（本轮尚未实现执行能力）。
+- **工具失败的兜底**：若 `recommend_causal_discovery_algorithms` 返回文本明显是错误提示
+  （含「未能找到数据画像」「未能读取当前会话上下文」「未上传 CSV」等）：
+  - **禁止**继续编造文字版推荐列表、算法对比表，或自行给出 PC/FCI 等的推荐结论；
+  - 应当请求用户重新上传 CSV，或刷新页面再试，并解释这通常是会话 ID 不一致导致；
+  - **绝不能**在没有真实工具结果的情况下凭"经验"输出推荐；这是硬约束，违反即视为严重错误。
+- **过渡分支**：当用户消息显示已经做出选择（例如「我选择 PC 算法进行因果发现」
+  「用 FCI 跑一遍」「就用 NOTEARS」），进入「等待执行」过渡：
+  - 用一句话确认收到选择，并复述算法名；
+  - 紧跟一句方法学提醒（例如：观测数据通常只能识别马尔可夫等价类，无法在无额外
+    假设下唯一确定真实方向；或 FCI 的输出含双向边等）；
+  - 明确告知用户：「因果发现的实际执行将在下一版本接入，届时会输出 Mermaid 图与逐边解释」；
+  - **禁止**输出任何 mermaid 代码块（避免误导用户以为已经跑完）；
+  - **禁止**调用尚不存在的执行工具，也不要虚构边、置信度或调整集合。
+- 同一回答中 `causal-card type=algo-choice` 代码块**最多出现一次**；
+  algo-choice 卡片**由 LLM 输出**（与 profile 卡片不同，profile 由前端 API 直出）。
+- 所有推荐理由必须能在工具返回的 `data_signals` / `recommendations[].reason` 中找到出处；
+  禁止臆造样本量、缺失率或非高斯检测结果。
 
 请严格遵守以上准则，结构化输出回答。"""
 
@@ -265,6 +321,7 @@ agent = create_agent(
         dag_adjustment_set,
         dag_to_mermaid,
         summarize_uploaded_dataset,
+        recommend_causal_discovery_algorithms,
     ],
     checkpointer=checkpointer,
     system_prompt=system_prompt,
@@ -296,13 +353,17 @@ async def causal_chat(prompt: str, image: str, thread_id: str):
                 {"type": "text", "text": prompt},
             ])
 
-        for chunk, _metadata in agent.stream(
-            {"messages": [message]},
-            {"configurable": {"thread_id": thread_id}},
-            stream_mode="messages",
-        ):
-            if isinstance(chunk, AIMessageChunk) and chunk.content:
-                yield chunk.content
+        # Sprint 3 P0：把 thread_id 注入 contextvar，让 summarize_uploaded_dataset /
+        # recommend_causal_discovery_algorithms 等工具不再依赖 LLM 传参；
+        # LangGraph 的 configurable 对 LLM 不可见，无法保证工具拿到正确 thread_id。
+        with bind_thread_id(thread_id):
+            for chunk, _metadata in agent.stream(
+                {"messages": [message]},
+                {"configurable": {"thread_id": thread_id}},
+                stream_mode="messages",
+            ):
+                if isinstance(chunk, AIMessageChunk) and chunk.content:
+                    yield chunk.content
     except Exception as exc:
         logger.error(f"\n[错误] {exc}")
         yield "因果分析助手暂时无法响应，请稍后再试或换种描述方式。"
