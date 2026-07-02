@@ -40,6 +40,9 @@ pandas>=2.0,<4.0
 numpy>=1.24,<3.0
 scipy>=1.10,<2.0
 
+# ---- Sprint 4 新增：因果发现执行 ----
+causal-learn>=0.1.4.3,<0.2
+
 # ---- 开发 / 测试 ----
 pytest>=8.0,<10.0
 httpx>=0.27,<1.0          # fastapi.testclient 的 ASGI 传输层
