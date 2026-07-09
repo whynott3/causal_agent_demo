@@ -15,11 +15,12 @@
 
 import os
 import sqlite3
+import time
 
 from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model
-from langchain.messages import AIMessage, AIMessageChunk, HumanMessage
+from langchain.messages import AIMessage, AIMessageChunk, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 from langchain_tavily import TavilySearch
 from langgraph.checkpoint.sqlite import SqliteSaver
@@ -34,8 +35,13 @@ from tools.dag_utils import (
     dag_to_mermaid,
 )
 from tools.algo_recommend import recommend_causal_discovery_algorithms
+from tools.causal_effect import (
+    estimate_uploaded_causal_effect,
+    prepare_uploaded_effect_options,
+)
 from tools.causal_discovery import run_uploaded_causal_discovery
 from tools.data_profile import summarize_uploaded_dataset
+from tools.report_export import build_uploaded_causal_report
 
 load_dotenv()
 
@@ -145,7 +151,9 @@ system_prompt = """你是一名因果推断（Causal Inference）与因果发现
   `dag_parse`、`dag_frontdoor_paths`、`dag_backdoor_paths`、
   `dag_adjustment_set`、`dag_to_mermaid`、`summarize_uploaded_dataset`、
   `recommend_causal_discovery_algorithms`、`recommend_discovery_algorithm`、
-  `run_uploaded_causal_discovery`、`run_causal_discovery`，以及未来新增的所有
+  `run_uploaded_causal_discovery`、`run_causal_discovery`、
+  `prepare_uploaded_effect_options`、`prepare_effect_options`、
+  `estimate_uploaded_causal_effect`、`causal_effect_estimate`，以及未来新增的所有
   `dag_*` / `dowhy_*` / 数据上传 / 因果发现工具。
 - 需要表达"我可以为你查资料 / 跑分析"时，用**能力描述**而非函数名：
   - ❌ "我可以调用 `causal_knowledge_search` 检索本地知识库"
@@ -317,8 +325,50 @@ F. 复杂问题输出完整"因果分析报告"
 - **算法语义约束**：
   - FCI：必须解释 PAG / 不确定方向 / 可能隐藏混杂；不能把不确定边写成确定因果。
   - PC / GES：必须提醒观测数据通常只能识别马尔可夫等价类；无向或 uncertain 边不能写成确定方向。
-- **暂不支持算法执行**：NOTEARS / LiNGAM / PCMCI 本版本不可执行；若用户选择这些算法，
-  必须明确告知“当前版本暂不支持执行”，并给出可运行替代（PC / FCI / GES）。
+- **算法可执行范围**：当前支持 PC / FCI / GES / NOTEARS / LiNGAM；PCMCI 仍暂不支持。
+
+# 数据驱动模式 · 因果效应估计（Sprint 5 阶段四，卡片选择流）
+- 触发条件：当前会话已上传数据，且用户明确表达“估计 X 对 Y 的因果效应”意图
+  （如“估计 Advertising 对 Sales 的影响”“用后门回归算一下”）。
+- **核心原则**：效应估计所用的因果图**必须来自此前因果发现的真实结果（dag.json）**，
+  估计方法**必须由用户在卡片中点选**；未经用户选择方法之前，**禁止**直接执行估计。
+- **子阶段 4a · 准备选项（用户首次表达效应估计意图时）**：
+  1) 先识别 treatment 与 outcome（不明确时先追问）。
+  2) 调用 `prepare_uploaded_effect_options(treatment=..., outcome=...)`，**不要传 thread_id**。
+  3) 判断返回 JSON 中的 `blocking` 字段：
+     - 若 `blocking=true`（会话中没有因果发现结果）：向用户解释「效应估计必须基于
+       已学习的因果图，当前会话还没有因果发现结果」，引导其先走阶段二/三
+       （算法推荐 → 选算法 → 执行因果发现），完成后再回来做效应估计。
+       **禁止**在没有 dag.json 时直接调用 `estimate_uploaded_causal_effect`，
+       也禁止凭空假设一张因果图。
+     - 若 `blocking=false`：先用 2-4 行自然语言概括因果图来源（算法、节点/边数）
+       与建议混杂集合，然后**紧接着**输出一段 ```causal-card type=effect-choice```
+       代码块，块内 JSON 必须是工具返回 ```json``` 块的**完整内容**，保证可直接
+       `JSON.parse`。卡片之后追加一句：「请在卡片中点选估计方法以启动因果效应估计。」
+       该回答**到此为止**，不要自行替用户选方法、不要提前执行估计。
+  4) 同一回答中 `causal-card type=effect-choice` 代码块最多出现一次。
+- **子阶段 4b · 执行估计（用户已在卡片中点选方法后）**：
+  1) 用户消息形如「我选择 XX 方法……估计 T 对 Y 的因果效应」时进入本子阶段。
+  2) 调用 `estimate_uploaded_causal_effect(treatment=..., outcome=..., confounders=...,
+     method=..., options=..., timeout_s=60)`，**不要传 thread_id**；
+     confounders 优先使用 4a 卡片给出的 `suggested_confounders`（或用户手动指定的集合）。
+  3) 读取工具结果：
+     - 若 `error` 非空：解释失败原因（列不存在、非数值列、样本不足、方法不支持、超时），
+       并给替代建议（补充变量、改方法、先做手工 DAG 建模）。
+     - 若 `error` 为空：先给“因果效应估计结果概览”（点估计、置信区间、方法、样本量），
+       再解释 refute_results（哪些通过/未通过，意味着什么）。
+  4) 必须明确声明：该结果依赖于因果图和可识别性假设，观测数据不能自动证明因果关系。
+- 可选输出 `causal-card type=effect-result`（JSON 原样取自工具返回），但不强制。
+- 计算工具结果不属于「参考资料」文献来源；不要把工具名放入参考资料。
+
+# 数据驱动模式 · 报告输出（Sprint 6 阶段五）
+- 触发条件：用户明确提出“导出报告 / 生成完整报告 / 给我可复制报告”。
+- **执行顺序**：
+  1) 优先复用当前会话工件（profile / dag / effect），缺失项必须明确标注“未运行该步骤”。
+  2) 调用 `build_uploaded_causal_report(include_refs=..., recent_question=...)`
+     生成完整 Markdown 报告（不要传 thread_id）。
+  3) 先给 3-6 行摘要，再给报告主体；可附报告导出链接 `/api/v1/report/{thread_id}`。
+- 报告中的「参考资料」仅允许检索来源；禁止把内部计算工具当成文献来源。
 
 请严格遵守以上准则，结构化输出回答。"""
 
@@ -340,6 +390,9 @@ agent = create_agent(
         summarize_uploaded_dataset,
         recommend_causal_discovery_algorithms,
         run_uploaded_causal_discovery,
+        prepare_uploaded_effect_options,
+        estimate_uploaded_causal_effect,
+        build_uploaded_causal_report,
     ],
     checkpointer=checkpointer,
     system_prompt=system_prompt,
@@ -350,7 +403,15 @@ agent = create_agent(
 # 对外接口
 # ---------------------------------------------------------------------------
 
-async def causal_chat(prompt: str, image: str, thread_id: str):
+def _preview_text(content: object, limit: int = 160) -> str:
+    text = str(content) if content is not None else ""
+    text = text.replace("\n", " ").strip()
+    if len(text) > limit:
+        return text[: limit - 3] + "..."
+    return text
+
+
+async def causal_chat(prompt: str, image: str, thread_id: str, stream_events: bool = False):
     """因果领域助手流式对话。
 
     Args:
@@ -359,7 +420,8 @@ async def causal_chat(prompt: str, image: str, thread_id: str):
         thread_id: 会话 ID，用于 LangGraph SqliteSaver 维持多轮上下文。
 
     Yields:
-        模型增量输出的 token 字符串。
+        - stream_events=False: 模型增量输出 token 字符串（兼容旧调用方）。
+        - stream_events=True : 结构化事件 dict（message/tool/error）。
     """
     logger.info(f"[用户] prompt={prompt!r}, image={image!r}, thread_id={thread_id!r}")
     try:
@@ -374,17 +436,62 @@ async def causal_chat(prompt: str, image: str, thread_id: str):
         # Sprint 3 P0：把 thread_id 注入 contextvar，让 summarize_uploaded_dataset /
         # recommend_causal_discovery_algorithms 等工具不再依赖 LLM 传参；
         # LangGraph 的 configurable 对 LLM 不可见，无法保证工具拿到正确 thread_id。
+        tool_started: set[str] = set()
         with bind_thread_id(thread_id):
             for chunk, _metadata in agent.stream(
                 {"messages": [message]},
                 {"configurable": {"thread_id": thread_id}},
                 stream_mode="messages",
             ):
-                if isinstance(chunk, AIMessageChunk) and chunk.content:
-                    yield chunk.content
+                if isinstance(chunk, AIMessageChunk):
+                    if getattr(chunk, "tool_call_chunks", None):
+                        for tc in chunk.tool_call_chunks:
+                            name = tc.get("name") if isinstance(tc, dict) else getattr(tc, "name", None)
+                            call_id = tc.get("id") if isinstance(tc, dict) else getattr(tc, "id", None)
+                            args = tc.get("args") if isinstance(tc, dict) else getattr(tc, "args", None)
+                            key = f"{name}:{call_id or ''}"
+                            if name and key not in tool_started:
+                                tool_started.add(key)
+                                evt = {
+                                    "type": "tool",
+                                    "name": str(name),
+                                    "status": "start",
+                                    "input_preview": _preview_text(args),
+                                    "output_preview": "",
+                                    "ts": time.time(),
+                                }
+                                if stream_events:
+                                    yield evt
+                    if chunk.content:
+                        if stream_events:
+                            yield {"type": "message", "data": str(chunk.content)}
+                        else:
+                            yield chunk.content
+                elif isinstance(chunk, ToolMessage):
+                    evt = {
+                        "type": "tool",
+                        "name": str(getattr(chunk, "name", "") or "tool"),
+                        "status": "end",
+                        "input_preview": "",
+                        "output_preview": _preview_text(getattr(chunk, "content", "")),
+                        "ts": time.time(),
+                    }
+                    if stream_events:
+                        yield evt
     except Exception as exc:
         logger.error(f"\n[错误] {exc}")
-        yield "因果分析助手暂时无法响应，请稍后再试或换种描述方式。"
+        if stream_events:
+            yield {
+                "type": "tool",
+                "name": "agent",
+                "status": "error",
+                "input_preview": "",
+                "output_preview": _preview_text(exc),
+                "ts": time.time(),
+            }
+            yield {"type": "message", "data": "因果分析助手暂时无法响应，请稍后再试或换种描述方式。"}
+        else:
+            yield "因果分析助手暂时无法响应，请稍后再试或换种描述方式。"
 
 
 def clear_messages(thread_id: str) -> None:

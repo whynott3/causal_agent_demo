@@ -30,14 +30,16 @@ import numpy as np
 import pandas as pd
 from causallearn.search.ConstraintBased.FCI import fci
 from causallearn.search.ConstraintBased.PC import pc
+from causallearn.search.FCMBased.lingam import DirectLiNGAM
 from causallearn.search.ScoreBased.GES import ges
 from langchain_core.tools import tool
 
 from common.runtime_context import get_current_thread_id
 from tools.data_profile import _uploads_root
+from tools.notears_linear import estimate_notears_adjacency
 
 _THREAD_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
-_SUPPORTED_ALGOS = {"PC", "FCI", "GES"}
+_SUPPORTED_ALGOS = {"PC", "FCI", "GES", "NOTEARS", "LINGAM"}
 
 
 def _safe_thread_dir(thread_id: str) -> Optional[Path]:
@@ -178,6 +180,33 @@ def _edges_to_mermaid(nodes: list[str], edges: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _adjacency_to_directed_edges(
+    adjacency: np.ndarray,
+    columns: list[str],
+    threshold: float = 1e-9,
+) -> list[dict]:
+    """把邻接矩阵转为统一 directed edges。
+
+    约定：adjacency[i, j] 表示 j -> i 的边权（LiNGAM 习惯）。
+    """
+    out: list[dict] = []
+    n = min(int(adjacency.shape[0]), len(columns))
+    for i in range(n):
+        for j in range(n):
+            if i == j:
+                continue
+            w = _safe_float(adjacency[i, j], n=6)
+            if w is None or abs(w) <= threshold:
+                continue
+            out.append({
+                "from": str(columns[j]),
+                "to": str(columns[i]),
+                "type": "directed",
+                "confidence": _safe_float(abs(w), n=6),
+            })
+    return _merge_edges(out)
+
+
 def _prepare_numeric_data(
     csv_path: str,
     columns: Optional[list[str]],
@@ -267,18 +296,63 @@ def _execute_algorithm(
             edge_objects = graph.get_graph_edges() if hasattr(graph, "get_graph_edges") else []
             return _edge_objects_to_unified(edge_objects, columns), warnings
         except Exception as exc:
+            warnings.append(
+                "若你使用 numpy 2.x 且 GES 报 TypeError，可尝试安装 causal-learn GitHub 主分支。"
+            )
             raise RuntimeError(
                 "GES 在当前环境执行失败（常见于 causallearn 与 numpy 版本兼容问题）。"
                 f" 原始错误：{exc}"
             ) from exc
 
-    if algo in {"NOTEARS", "LINGAM", "PCMCI"}:
+    if algo == "LINGAM":
+        model = DirectLiNGAM(random_state=int(options.get("random_state", 0)))
+        model.fit(data)
+        adjacency = np.asarray(model.adjacency_matrix_, dtype=float)
+        edges = _adjacency_to_directed_edges(
+            adjacency=adjacency,
+            columns=columns,
+            threshold=float(options.get("weight_threshold", 1e-9)),
+        )
+        return edges, warnings
+
+    if algo == "NOTEARS":
+        w_threshold = float(options.get("w_threshold", 0.3))
+        W = estimate_notears_adjacency(
+            data,
+            lambda1=float(options.get("lambda1", 0.01)),
+            max_iter=int(options.get("max_iter", 100)),
+            h_tol=float(options.get("h_tol", 1e-8)),
+            rho_max=float(options.get("rho_max", 1e16)),
+        )
+        edges: list[dict] = []
+        d = min(W.shape[0], len(columns))
+        for i in range(d):
+            for j in range(d):
+                if i == j:
+                    continue
+                w = _safe_float(W[i, j], n=6)
+                if w is None or abs(w) <= w_threshold:
+                    continue
+                edges.append(
+                    {
+                        "from": str(columns[i]),
+                        "to": str(columns[j]),
+                        "type": "directed",
+                        "confidence": _safe_float(abs(w), n=6),
+                    }
+                )
+        warnings.append(
+            "NOTEARS 为连续优化法；输出边方向依赖线性可加与无隐藏混杂等假设。"
+        )
+        return _merge_edges(edges), warnings
+
+    if algo in {"PCMCI"}:
         raise ValueError(
-            f"当前版本暂不支持执行 {algo}；目前仅支持 PC / FCI / GES 的真实运行。"
+            f"当前版本暂不支持执行 {algo}；目前支持 PC / FCI / GES / NOTEARS / LiNGAM。"
         )
 
     raise ValueError(
-        f"不支持的算法：{algorithm}。当前仅支持 PC / FCI / GES。"
+        f"不支持的算法：{algorithm}。当前支持 PC / FCI / GES / NOTEARS / LiNGAM。"
     )
 
 
@@ -316,13 +390,29 @@ def _run_internal(
             "error": block_reason,
         }
 
-    edges, algo_warnings = _execute_algorithm(
-        data=df.to_numpy(dtype=float),
-        columns=used_cols,
-        algorithm=algorithm,
-        options=opts,
-    )
-    warnings.extend(algo_warnings)
+    try:
+        edges, algo_warnings = _execute_algorithm(
+            data=df.to_numpy(dtype=float),
+            columns=used_cols,
+            algorithm=algorithm,
+            options=opts,
+        )
+        warnings.extend(algo_warnings)
+    except Exception as exc:
+        elapsed = time.perf_counter() - started
+        msg = str(exc)
+        return {
+            "algorithm": algorithm.upper(),
+            "nodes": used_cols,
+            "edges": [],
+            "mermaid": _edges_to_mermaid(used_cols, []),
+            "elapsed_s": round(elapsed, 4),
+            "warnings": warnings + [f"算法执行失败：{msg}"],
+            "options": opts,
+            "n_rows": n_rows,
+            "n_cols": n_cols,
+            "error": msg,
+        }
 
     elapsed = time.perf_counter() - started
     return {
@@ -429,7 +519,7 @@ def run_uploaded_causal_discovery(
     options: dict | None = None,
     timeout_s: int = 60,
 ) -> str:
-    """对当前会话已上传数据执行因果发现（PC / FCI / GES）。
+    """对当前会话已上传数据执行因果发现（PC / FCI / GES / NOTEARS / LiNGAM）。
 
     该工具会自动读取当前会话上下文中的 thread_id（无需 LLM 传参），从
     ``app/uploads/<thread_id>/data.csv`` 读取数据，并把结果写入

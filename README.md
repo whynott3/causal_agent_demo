@@ -8,10 +8,9 @@
 - **DAG 文本分析**：解析 `A -> B` 形式的 DAG，识别因果路径、后门路径、调整集合，并输出 Mermaid 图。
 - **CSV 上传与数据画像**：上传 `.csv` 后自动生成 `profile.json`，展示行列规模、列类型、数值列分布、分类取值、相关性与警告。
 - **数据驱动工作流**：上传数据后，Agent 给出概览并询问下一步意向。
-- **因果发现算法推荐**：基于 profile 启发式推荐 PC / GES / FCI / NOTEARS / LiNGAM / PCMCI，并以前端算法选择卡片展示。
+- **因果发现执行**：支持在上传数据上真实运行 PC / FCI / GES / LiNGAM / NOTEARS（NOTEARS 使用项目内置线性实现）。
+- **因果效应估计**：支持 DoWhy backdoor 估计（线性回归 / 倾向评分匹配）并输出点估计、置信区间与敏感性分析。
 - **多会话记忆**：使用 LangGraph `SqliteSaver` 保存对话历史，支持读取和清空会话。
-
-当前 Sprint 3 的定位是“推荐算法，不实际运行发现算法”。真实运行 PC / FCI / GES 等因果发现算法、输出 DAG 和逐边解释留给后续 Sprint。
 
 ## 技术栈
 
@@ -165,6 +164,8 @@ GET  /api/v1/upload/{thread_id}/profile
 - `dag_to_mermaid`
 - `summarize_uploaded_dataset`
 - `recommend_causal_discovery_algorithms`
+- `run_uploaded_causal_discovery`
+- `estimate_uploaded_causal_effect`
 
 其中涉及上传数据的工具通过 `common/runtime_context.py` 中的 `ContextVar` 自动读取当前会话 `thread_id`。LLM 不需要、也不应该手动传入 `thread_id`，避免出现工具读错会话目录的问题。
 
@@ -176,11 +177,46 @@ GET  /api/v1/upload/{thread_id}/profile
 - `type=profile`：历史兼容；现在 profile 主要由 API 直出渲染
 - `type=algo-choice`：因果发现算法选择卡片
 
+## Sprint 5 Demo
+
+1. 上传 `app/test_data/TutorialData.csv`。
+2. 在对话中输入：`我想估计 Advertising 对 Sales 的因果效应，控制 Weather 和 ProductPrice`。
+3. Agent 会识别变量并调用效应估计工具，返回：
+   - 点估计、置信区间、样本量；
+   - placebo / random common cause 的敏感性分析结果。
+4. 如需跑结构发现：先请求“从数据中自动学习因果结构”，再在卡片中选择 `LiNGAM`（或 PC/FCI/GES）。
+
+## 评测集（Sprint 5）
+
+- 用例文件：`app/eval/cases.yaml`（concept / method_compare / scenario / refusal / tool_expected）。
+- 运行命令：
+
+```powershell
+cd app
+python -m eval.run --cases app/eval/cases.yaml --limit 5
+```
+
+可选环境变量：
+- `EVAL_DISABLE_WEB=1`（默认）评测时尽量避免外网检索；
+- `EVAL_USE_JUDGE=1` 预留为后续 LLM-as-judge 扩展入口（当前默认关闭）。
+
+## Sprint 6 新增
+
+- 报告导出接口：`GET /api/v1/report/{thread_id}`
+  - `format=markdown|json`（默认 markdown）
+  - `download=true` 时作为附件下载
+- 知识库治理 CLI：
+  - `python -m data.kb_maintain --clean-orphans`
+  - `python -m data.kb_maintain --rebuild-cache`
+- 聊天流新增 `tool` SSE 事件，前端可在“工具调用”折叠面板查看调用轨迹。
+
 ## 已知限制
 
-- 当前不会实际运行 PC / FCI / GES / NOTEARS / LiNGAM / PCMCI，只做启发式推荐。
-- `LiNGAM` 推荐基于数值列峰度启发式，不等价于真正的非高斯独立性检验。
-- `PCMCI` 推荐仅基于时间字段与样本量，未验证严格的时间序列 / 面板结构。
+- GES 在 `numpy 2.x + causal-learn 0.1.4.7` 环境下可能触发兼容性 TypeError。
+- NOTEARS 为线性连续优化版本，结果对正则参数和阈值敏感，建议与 PC/FCI 交叉验证。
+- PCMCI 仍未接入真实执行，仅保留推荐层语义。
+- DoWhy 当前首版仅覆盖 backdoor 估计（线性回归 / 倾向评分匹配），IV / DID / DML 仍待扩展。
+- 报告“参考资料”章节目前仅做保守占位，后续可与检索证据链做更严格绑定。
 - profile 卡片由前端 API 直出，Agent 文字概览依赖 profile 摘要工具；如服务未重启或上下文异常，需重新上传或刷新会话。
 - 生产部署前需要收紧 CORS、上传大小策略、日志脱敏与密钥管理。
 
@@ -188,9 +224,8 @@ GET  /api/v1/upload/{thread_id}/profile
 
 建议后续 Sprint：
 
-1. 接入 `run_causal_discovery`，真实运行 PC / FCI / GES，并输出 Mermaid DAG。
-2. 对发现出的边做逐边解释，结合相关性信号与本地知识库来源。
-3. 接入 DoWhy / EconML 做因果效应估计与敏感性分析。
-4. 增加评测集与自动化回归评估。
-5. 优化前端：工具调用面板、暗色模式、可点击引用来源。
+1. 扩展 DoWhy 方法覆盖（IPW/DR/IV/DID/DML）并加入更完整稳健性检验。
+2. 接入 PCMCI 等时序因果发现算法。
+3. 完善评测运行器（LLM-as-judge、分层报告与趋势对比）。
+4. 优化前端：工具调用面板、暗色模式、effect-result 卡片渲染。
 

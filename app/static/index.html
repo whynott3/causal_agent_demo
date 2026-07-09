@@ -391,6 +391,112 @@
       flex-direction: column;
       gap: 18px;
     }
+    .tool-panel {
+      margin-top: 14px;
+      background: var(--surface-strong);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+    .tool-panel > summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 10px 12px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+    }
+    .tool-panel > summary::-webkit-details-marker { display: none; }
+    .tool-panel .tool-timeline {
+      max-height: 180px;
+      overflow-y: auto;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: grid;
+      gap: 6px;
+    }
+    .tool-item {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      padding: 6px 8px;
+    }
+    .tool-item.start { border-left: 3px solid var(--primary); }
+    .tool-item.end { border-left: 3px solid var(--accent); }
+    .tool-item.error { border-left: 3px solid var(--danger); }
+    .tool-item .meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--text-soft);
+      margin-bottom: 4px;
+    }
+    .tool-item .name { font-weight: 600; color: var(--text); }
+    .tool-item .preview {
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.45;
+    }
+
+    /* ---------- Fixed right profile panel ---------- */
+    .profile-side {
+      position: fixed;
+      top: 86px;
+      right: 16px;
+      width: 360px;
+      max-height: calc(100vh - 190px);
+      z-index: 18;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(8px);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+    }
+    .profile-side > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .profile-side > summary::-webkit-details-marker { display: none; }
+    .profile-side > summary::after {
+      content: "收起";
+      font-size: 11px;
+      color: var(--text-soft);
+      font-weight: 500;
+    }
+    .profile-side:not([open]) > summary::after { content: "展开"; }
+    .profile-side .profile-side-body {
+      max-height: calc(100vh - 230px);
+      overflow-y: auto;
+      padding: 10px;
+    }
+    .profile-side .profile-side-empty {
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+      background: #fff;
+    }
+    .profile-side .causal-card {
+      margin: 0;
+      box-shadow: none;
+    }
     .msg {
       display: flex;
       gap: 12px;
@@ -964,6 +1070,7 @@
       .app-col { margin-left: 0; }
       .composer-wrap { left: 0; }
       .header-inner { padding-left: 60px; }
+      .profile-side { display: none; }
     }
     @media (max-width: 640px) {
       .header-inner { padding: 12px 14px 12px 60px; gap: 10px; }
@@ -1022,6 +1129,10 @@
       </div>
       <span class="thread-chip" id="threadChip">thread: --</span>
       <div class="header-actions">
+        <button class="icon-btn" id="exportReportBtn" title="导出当前会话因果报告（.md）">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+          <span>导出报告</span>
+        </button>
         <button class="icon-btn danger" id="clearBtn" title="清空当前会话历史">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
           <span>清空</span>
@@ -1067,6 +1178,10 @@
     </section>
 
     <section class="chat" id="chat" aria-live="polite"></section>
+    <details class="tool-panel" id="toolPanel">
+      <summary>工具调用（可折叠）</summary>
+      <div class="tool-timeline" id="toolTimeline"></div>
+    </details>
   </main>
 
   <div class="composer-wrap">
@@ -1087,6 +1202,16 @@
       </div>
     </div>
   </div>
+
+  <details class="profile-side" id="profileSide" open>
+    <summary>会话数据画像</summary>
+    <div class="profile-side-body">
+      <div class="profile-side-empty" id="profileSideEmpty">
+        当前会话尚未上传数据。上传 CSV 后，这里会固定显示数据画像，可随时折叠/展开。
+      </div>
+      <div id="profileSideContent" style="display:none;"></div>
+    </div>
+  </details>
   </div><!-- /.app-col -->
 
   <script>
@@ -1100,6 +1225,7 @@
     const THREAD_CHIP = document.getElementById("threadChip");
     const STATUS_DOT = document.getElementById("statusDot");
     const STATUS_TEXT = document.getElementById("statusText");
+    const EXPORT_REPORT_BTN = document.getElementById("exportReportBtn");
     const THREAD_LIST_EL = document.getElementById("threadList");
     const CURRENT_TITLE_EL = document.getElementById("currentThreadTitle");
     const SIDEBAR_EL = document.getElementById("sidebar");
@@ -1107,6 +1233,11 @@
     const SIDEBAR_BACKDROP = document.getElementById("sidebarBackdrop");
     const ATTACH_BTN = document.getElementById("attach");
     const FILE_INPUT = document.getElementById("fileInput");
+    const TOOL_PANEL = document.getElementById("toolPanel");
+    const TOOL_TIMELINE = document.getElementById("toolTimeline");
+    const PROFILE_SIDE = document.getElementById("profileSide");
+    const PROFILE_SIDE_CONTENT = document.getElementById("profileSideContent");
+    const PROFILE_SIDE_EMPTY = document.getElementById("profileSideEmpty");
 
     // 数据驱动模式：上传成功后给 Agent 发的"隐藏" user 消息前缀。
     // 它会进入 LangGraph 历史（供后续轮次复用 profile 上下文），但前端在
@@ -1135,6 +1266,7 @@
     // ----- thread id 持久化 + 会话列表 -----
     const LS_THREADS = "causal_threads_v1";
     const LS_CURRENT = "causal_thread_id";
+    const LS_PROFILE_OPEN = "causal_profile_side_open_v1";
 
     function newThreadId() {
       const rand = (crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + "-" + Math.random().toString(36).slice(2, 10));
@@ -1192,6 +1324,19 @@
     }
     updateThreadChip();
 
+    // 右侧画像面板折叠状态持久化
+    try {
+      const openSaved = localStorage.getItem(LS_PROFILE_OPEN);
+      if (PROFILE_SIDE && openSaved != null) {
+        PROFILE_SIDE.open = openSaved === "1";
+      }
+    } catch (_) {}
+    if (PROFILE_SIDE) {
+      PROFILE_SIDE.addEventListener("toggle", () => {
+        try { localStorage.setItem(LS_PROFILE_OPEN, PROFILE_SIDE.open ? "1" : "0"); } catch (_) {}
+      });
+    }
+
     function renderThreadList() {
       THREAD_LIST_EL.innerHTML = "";
       if (threads.length === 0) {
@@ -1243,6 +1388,8 @@
       updateThreadChip();
       renderThreadList();
       CHAT_EL.innerHTML = "";
+      clearToolTimeline();
+      clearPinnedProfile();
       WELCOME_EL.style.display = "";
       setStatus("idle", "已切换会话");
       await loadHistory();
@@ -1267,6 +1414,8 @@
         localStorage.setItem(LS_CURRENT, threadId);
         updateThreadChip();
         CHAT_EL.innerHTML = "";
+        clearToolTimeline();
+        clearPinnedProfile();
         WELCOME_EL.style.display = "";
         await loadHistory();
         await loadUploadStatus();
@@ -1282,6 +1431,8 @@
       updateThreadChip();
       renderThreadList();
       CHAT_EL.innerHTML = "";
+      clearToolTimeline();
+      clearPinnedProfile();
       WELCOME_EL.style.display = "";
       setStatus("idle", "已开启新会话");
       INPUT_EL.focus();
@@ -1292,6 +1443,54 @@
     function setStatus(state, text) {
       STATUS_DOT.className = "status-dot" + (state === "busy" ? " busy" : state === "error" ? " error" : "");
       STATUS_TEXT.textContent = text;
+    }
+
+    function clearToolTimeline() {
+      if (!TOOL_TIMELINE) return;
+      TOOL_TIMELINE.innerHTML = "";
+    }
+
+    function clearPinnedProfile() {
+      if (!PROFILE_SIDE_CONTENT || !PROFILE_SIDE_EMPTY) return;
+      PROFILE_SIDE_CONTENT.style.display = "none";
+      PROFILE_SIDE_CONTENT.innerHTML = "";
+      PROFILE_SIDE_EMPTY.style.display = "";
+    }
+
+    function renderPinnedProfile(profile) {
+      if (!PROFILE_SIDE_CONTENT || !PROFILE_SIDE_EMPTY) return;
+      PROFILE_SIDE_EMPTY.style.display = "none";
+      PROFILE_SIDE_CONTENT.style.display = "";
+      PROFILE_SIDE_CONTENT.innerHTML = "";
+      const card = document.createElement("div");
+      card.className = "causal-card";
+      renderProfileCard(card, profile);
+      PROFILE_SIDE_CONTENT.appendChild(card);
+    }
+
+    function appendToolEvent(evt) {
+      if (!TOOL_TIMELINE || !evt) return;
+      const status = String(evt.status || "end");
+      const name = String(evt.name || "tool");
+      const inputPreview = String(evt.input_preview || "");
+      const outputPreview = String(evt.output_preview || "");
+      const ts = evt.ts ? new Date(Number(evt.ts) * 1000) : new Date();
+      const item = document.createElement("div");
+      item.className = `tool-item ${escapeAttr(status)}`;
+      const timeText = Number.isNaN(ts.getTime()) ? "" : ts.toLocaleTimeString();
+      const preview = status === "start" ? inputPreview : outputPreview;
+      item.innerHTML = `
+        <div class="meta">
+          <span class="name">${escapeHtml(name)}</span>
+          <span>${escapeHtml(status.toUpperCase())}${timeText ? " · " + escapeHtml(timeText) : ""}</span>
+        </div>
+        <div class="preview">${escapeHtml(preview || "无摘要")}</div>
+      `;
+      TOOL_TIMELINE.appendChild(item);
+      while (TOOL_TIMELINE.childElementCount > 60) {
+        TOOL_TIMELINE.removeChild(TOOL_TIMELINE.firstElementChild);
+      }
+      TOOL_TIMELINE.scrollTop = TOOL_TIMELINE.scrollHeight;
     }
 
     // ----- 自适应高度 -----
@@ -1328,8 +1527,18 @@
         }
       );
     }
+    // 规范化 markdown，容错模型常见格式问题：
+    // - "#标题" => "# 标题"
+    // - "##标题" => "## 标题"
+    function normalizeMarkdown(raw) {
+      if (typeof raw !== "string" || !raw) return raw || "";
+      return raw
+        // 仅处理行首标题，避免破坏 code fence 内文本
+        .replace(/^(#{1,6})([^\s#`].*)$/gm, "$1 $2");
+    }
     function renderAssistantContent(raw) {
-      const prepped = preprocessCausalCards(raw);
+      const normalized = normalizeMarkdown(raw);
+      const prepped = preprocessCausalCards(normalized);
       if (window.marked && typeof marked.parse === "function") {
         try { return marked.parse(prepped); } catch (_) {}
       }
@@ -1532,10 +1741,6 @@
       host.innerHTML = html;
     }
 
-    function hasApiProfileCard() {
-      return CHAT_EL.querySelector('.causal-card[data-source="api"]') !== null;
-    }
-
     // ----- algo-choice 卡片渲染（Sprint 3 阶段二） -----
     function renderAlgoChoiceCard(host, payload) {
       const sig = payload.data_signals || {};
@@ -1652,6 +1857,105 @@
       });
     }
 
+    // ----- effect-choice 卡片渲染（因果效应估计：图 + 方法选择） -----
+    function renderEffectChoiceCard(host, payload) {
+      const dag = payload.dag || {};
+      const methods = Array.isArray(payload.methods) ? payload.methods : [];
+      const warns = Array.isArray(payload.warnings) ? payload.warnings : [];
+      const confs = Array.isArray(payload.suggested_confounders) ? payload.suggested_confounders : [];
+      const treatment = payload.treatment || "";
+      const outcome = payload.outcome || "";
+
+      let html = "";
+      html += `<h4>因果效应估计 · 选择方法 <span class="ccd-pill">`
+        + `${escapeHtml(String(dag.algorithm || "?"))} 图</span></h4>`;
+
+      if (payload.blocking === true) {
+        html += `<div class="algo-blocking"><strong>暂不能进行效应估计：</strong>`
+          + `<div>${escapeHtml(String(payload.blocking_reason || "缺少因果发现结果，请先运行因果发现。"))}</div></div>`;
+        host.innerHTML = html;
+        host.dataset.blocking = "true";
+        return;
+      }
+
+      html += `<div class="ccd-section">已学习的因果图</div>`;
+      html += `<div style="font-size:12.5px;color:var(--text-soft);margin-bottom:6px">`
+        + `来自 ${escapeHtml(String(dag.algorithm || "?"))} 算法 · `
+        + `${dag.n_nodes ?? "?"} 个节点 / ${dag.n_edges ?? "?"} 条边</div>`;
+
+      const edges = Array.isArray(dag.edges) ? dag.edges : [];
+      if (edges.length > 0) {
+        const shown = edges.slice(0, 12);
+        html += `<details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:12.5px">`
+          + `查看边列表（前 ${shown.length} / 共 ${edges.length} 条）</summary>`
+          + `<ul style="font-size:12.5px;margin:6px 0 0 18px">`;
+        shown.forEach(e => {
+          const arrow = e.type === "directed" ? "→" : "—";
+          html += `<li>${escapeHtml(String(e.from || ""))} ${arrow} ${escapeHtml(String(e.to || ""))}</li>`;
+        });
+        html += `</ul></details>`;
+      }
+
+      if (treatment && outcome) {
+        html += `<div class="ccd-section">估计目标</div>`;
+        html += `<div style="font-size:12.5px;margin-bottom:6px">`
+          + `${escapeHtml(treatment)} → ${escapeHtml(outcome)}`
+          + `　混杂集合：${confs.length ? confs.map(escapeHtml).join(", ") : "（空）"}</div>`;
+      }
+
+      if (warns.length > 0) {
+        html += `<div class="ccd-warnings" style="margin-bottom:8px"><ul>`;
+        warns.forEach(w => { html += `<li>${escapeHtml(String(w))}</li>`; });
+        html += `</ul></div>`;
+      }
+
+      if (methods.length > 0) {
+        html += `<div class="ccd-section">估计方法（点击选择）</div>`;
+        html += `<div class="algo-grid">`;
+        methods.forEach((m, i) => {
+          const cls = ["algo-card", "effect-method-card"];
+          if (i === 0) cls.push("recommended");
+          html += `<div class="${cls.join(" ")}" data-method="${escapeAttr(String(m.method || ""))}"`
+            + ` data-label="${escapeAttr(String(m.label || m.method || ""))}">`;
+          html += `<div class="algo-header">`;
+          html += `<span class="algo-name">${escapeHtml(String(m.label || m.method || ""))}</span>`;
+          html += `<span class="priority-badge">${i === 0 ? "推荐" : "候选"}</span>`;
+          html += `</div>`;
+          html += `<div class="algo-reason">${escapeHtml(String(m.reason || ""))}</div>`;
+          html += `</div>`;
+        });
+        html += `</div>`;
+      }
+
+      host.innerHTML = html;
+      bindEffectMethodClicks(host, { treatment, outcome, confounders: confs });
+    }
+
+    function bindEffectMethodClicks(host, ctx) {
+      const cards = host.querySelectorAll('.effect-method-card[data-method]');
+      cards.forEach(card => {
+        if (card.dataset.bound === "1") return;
+        card.dataset.bound = "1";
+        card.addEventListener("click", () => {
+          if (sending) return;
+          const method = card.getAttribute("data-method") || "";
+          const label = card.getAttribute("data-label") || method;
+          if (!method) return;
+          const sib = card.closest('.causal-card')?.querySelectorAll('.effect-method-card');
+          if (sib) sib.forEach(c => { c.style.pointerEvents = "none"; c.style.opacity = "0.55"; });
+          card.style.opacity = "1";
+          card.style.borderColor = "var(--primary)";
+          const target = (ctx.treatment && ctx.outcome)
+            ? `估计 ${ctx.treatment} 对 ${ctx.outcome} 的因果效应`
+            : "进行因果效应估计";
+          const confPart = ctx.confounders && ctx.confounders.length
+            ? `，混杂集合使用：${ctx.confounders.join(", ")}`
+            : "";
+          sendMessage(`我选择 ${label}（${method}）方法，基于已学习的因果图${target}${confPart}`);
+        });
+      });
+    }
+
     async function fetchProfile(tid) {
       try {
         const res = await fetch(
@@ -1668,43 +1972,35 @@
     /** 方案 A：用 API 返回的完整 profile 直接插入卡片，不依赖 LLM 复述 JSON。 */
     function appendProfileCard(profile) {
       if (!profile) return;
-      WELCOME_EL.style.display = "none";
-      const msg = document.createElement("div");
-      msg.className = "msg assistant";
-      const avatar = document.createElement("div");
-      avatar.className = "avatar assistant";
-      avatar.textContent = "C";
-      const bubble = document.createElement("div");
-      bubble.className = "bubble";
-      const card = document.createElement("div");
-      card.className = "causal-card";
-      card.dataset.type = "profile";
-      card.dataset.source = "api";
-      renderProfileCard(card, profile);
-      card.dataset.processed = "true";
-      bubble.appendChild(card);
-      msg.appendChild(avatar);
-      msg.appendChild(bubble);
-      CHAT_EL.appendChild(msg);
-      msg.scrollIntoView({ behavior: "smooth", block: "end" });
+      renderPinnedProfile(profile);
     }
 
     function renderCausalCards(el) {
       if (!el) return;
       const cards = el.querySelectorAll('.causal-card[data-payload]');
-      // 同一回答里 algo-choice 卡片最多一张：第二张及之后丢弃
+      // 同一回答里 algo-choice / effect-choice 卡片最多各一张：第二张及之后丢弃
       let algoSeen = false;
+      let effectSeen = false;
       cards.forEach(card => {
         if (card.dataset.processed === "true") return;
         const type = card.dataset.type || "";
-        // 已有 API 卡片时，跳过 LLM 输出的 profile 卡片，避免重复
-        if (type === "profile" && hasApiProfileCard()) {
+        // profile 固定展示在右侧面板，不再占用会话流
+        if (type === "profile") {
+          const rawPayload = card.dataset.payload || "";
+          try {
+            const payload = JSON.parse(rawPayload);
+            renderPinnedProfile(payload);
+          } catch (_) {}
           card.remove();
           return;
         }
         if (type === "algo-choice") {
           if (algoSeen) { card.remove(); return; }
           algoSeen = true;
+        }
+        if (type === "effect-choice") {
+          if (effectSeen) { card.remove(); return; }
+          effectSeen = true;
         }
         const rawPayload = card.dataset.payload || "";
         try {
@@ -1713,6 +2009,8 @@
             renderProfileCard(card, payload);
           } else if (type === "algo-choice") {
             renderAlgoChoiceCard(card, payload);
+          } else if (type === "effect-choice") {
+            renderEffectChoiceCard(card, payload);
           } else {
             // 未知类型：原样 JSON 兜底
             card.innerHTML = `<div class="ccd-fallback">未知卡片类型 type=${escapeHtml(type)}\n${escapeHtml(rawPayload)}</div>`;
@@ -1866,13 +2164,14 @@
             "system",
             `当前会话已加载数据集（${data.rows ?? "?"} 行 × ${data.cols ?? "?"} 列）`
           );
-          if (!hasApiProfileCard()) {
-            const profile = await fetchProfile(threadId);
-            if (profile) appendProfileCard(profile);
-          }
+          const profile = await fetchProfile(threadId);
+          if (profile) appendProfileCard(profile);
+        } else {
+          clearPinnedProfile();
         }
       } catch (err) {
         console.warn("加载上传状态失败：", err);
+        clearPinnedProfile();
       }
     }
 
@@ -1921,10 +2220,6 @@
         // 方案 A：直接从 API 拉完整 profile 渲染卡片（含数值分布 / 分类频次）
         const profile = await fetchProfile(threadId);
         if (profile) {
-          if (hasApiProfileCard()) {
-            const old = CHAT_EL.querySelector('.causal-card[data-source="api"]');
-            if (old) old.closest(".msg")?.remove();
-          }
           appendProfileCard(profile);
         }
         setStatus("busy", "正在生成文字概览...");
@@ -1946,6 +2241,49 @@
     function truncateTitle(s) {
       const cleaned = String(s || "").replace(/\s+/g, " ").trim();
       return cleaned.length > 24 ? cleaned.slice(0, 24) + "…" : (cleaned || "新对话");
+    }
+
+    function triggerDownload(url) {
+      const a = document.createElement("a");
+      a.href = url;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    async function exportCurrentReport() {
+      if (!threadId) return;
+      if (sending) {
+        appendMessage("system", "请等待当前回答完成后再导出报告。");
+        return;
+      }
+      EXPORT_REPORT_BTN.disabled = true;
+      const oldText = EXPORT_REPORT_BTN.innerHTML;
+      EXPORT_REPORT_BTN.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg><span>导出中...</span>`;
+      setStatus("busy", "正在准备报告下载...");
+      try {
+        // 先做一次轻量探测，避免直接下载失败页面
+        const probe = await fetch(`${API_BASE}/report/${encodeURIComponent(threadId)}?format=json`);
+        if (!probe.ok) {
+          let detail = "";
+          try {
+            const j = await probe.json();
+            detail = j.detail || "";
+          } catch (_) {}
+          throw new Error(detail || `HTTP ${probe.status}`);
+        }
+        const url = `${API_BASE}/report/${encodeURIComponent(threadId)}?download=true`;
+        triggerDownload(url);
+        setStatus("idle", "报告下载已触发");
+      } catch (err) {
+        console.error("导出报告失败：", err);
+        appendMessage("system", `导出报告失败：${err.message || err}`);
+        setStatus("error", "报告导出失败");
+      } finally {
+        EXPORT_REPORT_BTN.disabled = false;
+        EXPORT_REPORT_BTN.innerHTML = oldText;
+      }
     }
 
     // ----- 发送 -----
@@ -1972,6 +2310,7 @@
         appendMessage("user", text);
       }
       const bubble = appendMessage("assistant", "", { streaming: true });
+      clearToolTimeline();
 
       abortCtrl = new AbortController();
       let acc = "";
@@ -1988,20 +2327,73 @@
         const reader = res.body.getReader();
         const decoder = new TextDecoder("utf-8");
         let firstChunk = true;
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          if (!chunk) continue;
+        let buf = "";
+
+        function applyMessageToken(token) {
+          if (!token) return;
           if (firstChunk) {
             bubble.innerHTML = "";
             firstChunk = false;
             setStatus("busy", "生成中...");
           }
-          acc += chunk;
+          acc += token;
           bubble.innerHTML = renderAssistantContent(acc) + '<span class="caret"></span>';
           renderMath(bubble);
           bubble.parentElement.scrollIntoView({ behavior: "smooth", block: "end" });
+        }
+
+        function handleSseFrame(frame) {
+          if (!frame || !frame.trim()) return;
+          const lines = frame.split(/\r?\n/);
+          let event = "message";
+          const dataLines = [];
+          lines.forEach((ln) => {
+            if (ln.startsWith("event:")) {
+              event = ln.slice(6).trim() || "message";
+            } else if (ln.startsWith("data:")) {
+              // SSE 规范：仅去掉冒号后的一个空格，其余空白属于数据本身
+              let v = ln.slice(5);
+              if (v.startsWith(" ")) v = v.slice(1);
+              dataLines.push(v);
+            }
+          });
+          const data = dataLines.join("\n");
+          if (!data && !frame.startsWith("event:") && !frame.startsWith("data:")) {
+            // 兼容旧后端：直接把原始 chunk 当 token
+            applyMessageToken(frame);
+            return;
+          }
+          if (event === "tool") {
+            try {
+              appendToolEvent(JSON.parse(data));
+            } catch (_) {
+              appendToolEvent({ name: "tool", status: "error", output_preview: data, ts: Date.now() / 1000 });
+            }
+          } else {
+            // 消息 token 为 JSON 编码的字符串（保留换行）；兼容旧格式的裸文本
+            let token = data;
+            if (data.startsWith('"')) {
+              try { token = JSON.parse(data); } catch (_) { token = data; }
+            }
+            applyMessageToken(token);
+          }
+        }
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          if (!chunk) continue;
+          buf += chunk;
+          let idx;
+          while ((idx = buf.indexOf("\n\n")) >= 0) {
+            const frame = buf.slice(0, idx);
+            buf = buf.slice(idx + 2);
+            handleSseFrame(frame);
+          }
+        }
+        if (buf.trim()) {
+          handleSseFrame(buf);
         }
         bubble.innerHTML = renderAssistantContent(acc || "（助手未返回内容）");
         renderMath(bubble);
@@ -2037,6 +2429,7 @@
     });
 
     NEW_BTN.addEventListener("click", createNewThread);
+    EXPORT_REPORT_BTN.addEventListener("click", exportCurrentReport);
 
     CLEAR_BTN.addEventListener("click", async () => {
       if (!confirm("确认清空当前会话的历史消息？该会话本身仍会保留在列表中。")) return;
@@ -2044,6 +2437,8 @@
         const res = await fetch(`${API_BASE}/chat/messages?thread_id=${encodeURIComponent(threadId)}`, { method: "DELETE" });
         if (!res.ok) throw new Error("HTTP " + res.status);
         CHAT_EL.innerHTML = "";
+        clearToolTimeline();
+        clearPinnedProfile();
         WELCOME_EL.style.display = "";
         upsertThread(threadId, { title: "新对话", updatedAt: Date.now() });
         updateThreadChip();

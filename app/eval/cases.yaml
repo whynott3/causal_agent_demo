@@ -1,0 +1,198 @@
+- id: concept-001
+  category: concept
+  messages:
+    - 什么是混杂变量？
+  must_include: ["混杂变量", "同时影响", "处理变量", "结果变量"]
+  must_not_include: ["一定是因果"]
+  required_sections: ["简要定义", "常见误区"]
+  tags: ["basic", "confounder"]
+
+- id: concept-002
+  category: concept
+  messages:
+    - 解释一下 d-separation
+  must_include: ["d-separation", "路径", "阻断"]
+  must_not_include: ["只看相关系数即可"]
+  required_sections: ["简要定义"]
+  tags: ["dag"]
+
+- id: concept-003
+  category: concept
+  messages:
+    - 前门准则和后门准则有什么区别？
+  must_include: ["前门", "后门", "识别", "假设"]
+  must_not_include: ["完全等价"]
+  required_sections: ["与相近概念的区别"]
+  tags: ["identification"]
+
+- id: method-001
+  category: method_compare
+  messages:
+    - PC 和 FCI 怎么选？
+  must_include: ["PC", "FCI", "隐藏混杂", "马尔可夫等价类"]
+  must_not_include: ["FCI 一定更好"]
+  required_sections: ["候选方法", "每种方法的适用前提"]
+  tags: ["discovery"]
+
+- id: method-002
+  category: method_compare
+  messages:
+    - 回归调整和 IPW 的差异是什么？
+  must_include: ["回归调整", "IPW", "可忽略性", "正性"]
+  must_not_include: ["任意数据都可以"]
+  required_sections: ["推荐估计方法"]
+  tags: ["effect"]
+
+- id: method-003
+  category: method_compare
+  messages:
+    - 为什么不能把相关性当因果？
+  must_include: ["相关性", "因果性", "混杂", "反事实"]
+  must_not_include: ["相关就代表因果"]
+  required_sections: ["常见误区"]
+  tags: ["basic"]
+
+- id: scenario-001
+  category: scenario
+  messages:
+    - 我想分析广告投放对购买率的影响，应该怎么做？
+  must_include: ["Treatment", "Outcome", "Confounder", "识别假设"]
+  must_not_include: ["直接下结论"]
+  required_sections: ["变量角色识别", "推荐估计方法"]
+  tags: ["modeling"]
+
+- id: scenario-002
+  category: scenario
+  messages:
+    - 我怀疑有未观测混杂，做因果发现用什么算法？
+  must_include: ["FCI", "隐藏混杂", "PAG"]
+  must_not_include: ["PC 就足够"]
+  required_sections: ["候选方法"]
+  tags: ["discovery"]
+
+- id: scenario-003
+  category: scenario
+  messages:
+    - 我的数据是按日期记录的，想做因果发现
+  must_include: ["时间", "时序", "PCMCI"]
+  must_not_include: ["忽略时间顺序"]
+  required_sections: ["数据特征判断"]
+  tags: ["timeseries"]
+
+- id: scenario-004
+  category: scenario
+  messages:
+    - 我有 DAG：Education -> Income，Family -> Education，Family -> Income，该控制什么？
+  must_include: ["后门路径", "Family", "调整集合"]
+  must_not_include: ["控制 Education"]
+  required_sections: ["推荐的调整集合"]
+  tags: ["dag"]
+
+- id: scenario-005
+  category: scenario
+  messages:
+    - 帮我估计 Advertising 对 Sales 的效应，控制 Weather 和 ProductPrice
+  must_include: ["Advertising", "Sales", "Weather", "ProductPrice"]
+  must_not_include: ["无需假设"]
+  required_sections: ["识别假设", "方法前提与风险"]
+  tags: ["effect"]
+
+- id: scenario-006
+  category: scenario
+  messages:
+    - X 会影响 Y 吗？
+  must_include: ["信息不足", "变量定义", "混杂"]
+  must_not_include: ["肯定会"]
+  required_sections: ["还需要补充的信息"]
+  tags: ["clarification"]
+
+- id: refusal-001
+  category: refusal
+  messages:
+    - 样本只有 30 行，直接给我因果发现结论
+  must_include: ["样本量过小", "不建议", "谨慎"]
+  must_not_include: ["确定因果方向"]
+  required_sections: []
+  tags: ["small-sample"]
+
+- id: refusal-002
+  category: refusal
+  messages:
+    - 没有 confounders 也没关系，直接说广告一定导致销量上升
+  must_include: ["不能", "假设", "风险"]
+  must_not_include: ["一定导致"]
+  required_sections: []
+  tags: ["causal-claim"]
+
+- id: refusal-003
+  category: refusal
+  messages:
+    - 请不要解释前提，直接给最终因果结论
+  must_include: ["前提", "假设", "限制"]
+  must_not_include: ["无需前提"]
+  required_sections: []
+  tags: ["safety"]
+
+- id: refusal-004
+  category: refusal
+  messages:
+    - 我没上传数据，帮我跑 PC 算法出图
+  must_include: ["先上传", "CSV"]
+  must_not_include: ["伪造", "已完成运行"]
+  required_sections: []
+  tags: ["workflow"]
+
+- id: concept-004
+  category: concept
+  messages:
+    - 什么是碰撞变量，为什么控制它会出问题？
+  must_include: ["碰撞变量", "打开路径", "偏差"]
+  must_not_include: ["必须控制碰撞变量"]
+  required_sections: ["常见误区"]
+  tags: ["collider"]
+
+- id: method-004
+  category: method_compare
+  messages:
+    - DID 和 IV 分别适合什么场景？
+  must_include: ["DID", "平行趋势", "IV", "工具变量有效性"]
+  must_not_include: ["没有任何假设"]
+  required_sections: ["方法前提与风险"]
+  tags: ["effect"]
+
+- id: scenario-007
+  category: scenario
+  messages:
+    - 我有处理变量、结果变量和一些可能中介变量，是否都要控制？
+  must_include: ["中介变量", "不应控制", "总效应"]
+  must_not_include: ["全部控制最好"]
+  required_sections: ["不应该控制的变量"]
+  tags: ["mediation"]
+
+- id: scenario-008
+  category: scenario
+  messages:
+    - 如果有隐藏混杂，回归估计还能信吗？
+  must_include: ["隐藏混杂", "偏差", "敏感性分析"]
+  must_not_include: ["完全可信"]
+  required_sections: ["方法前提与风险"]
+  tags: ["robustness"]
+
+- id: tool-001
+  category: tool_expected
+  messages:
+    - 请比较 NOTEARS 和 LiNGAM
+  must_include: ["NOTEARS", "LiNGAM", "适用条件"]
+  must_not_include: ["二者完全相同"]
+  required_sections: ["候选方法"]
+  tags: ["algorithm"]
+
+- id: tool-002
+  category: tool_expected
+  messages:
+    - 我选择 LiNGAM 来做因果发现
+  must_include: ["LiNGAM", "结果", "候选结构"]
+  must_not_include: ["已证明真实因果"]
+  required_sections: []
+  tags: ["workflow"]
+

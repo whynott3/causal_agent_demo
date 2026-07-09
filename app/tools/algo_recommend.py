@@ -12,8 +12,8 @@
      输出 Markdown 摘要 + 末尾附结构化 ```json``` 块，供 Agent 填入 algo-choice
      causal-card。
 
-规则参照 ``因果助手改造.md`` Sprint 3 / P2.T3 表格。本轮**只推荐不执行**算法；
-执行将在 Sprint 4（P2.T4 run_causal_discovery）接入。
+规则参照 ``因果助手改造.md`` Sprint 3 / P2.T3 表格。本工具只负责推荐；
+算法真实执行由 ``run_causal_discovery`` / ``run_uploaded_causal_discovery`` 完成。
 """
 
 from __future__ import annotations
@@ -291,7 +291,7 @@ def recommend_discovery_algorithm(
             "preconditions_ok": True,
             "warnings": [
                 "NOTEARS 默认假设线性关系；非线性场景需要换成 NOTEARS-MLP 等扩展。",
-                "本版本仅推荐，下一版本接入实际执行。",
+                "NOTEARS 为连续优化结构学习，结果对阈值和正则系数较敏感，建议与 PC/FCI 交叉验证。",
             ],
         })
 
@@ -323,7 +323,7 @@ def recommend_discovery_algorithm(
             "preconditions_ok": True,
             "warnings": [
                 "需要确认数据确实是按时间排序的面板/时序数据，而不是含有日期字段的横截面数据。",
-                "本版本仅推荐，下一版本接入实际执行。",
+                "PCMCI 当前仍未接入真实执行，建议先用领域知识校验后再选替代算法。",
             ],
         })
 

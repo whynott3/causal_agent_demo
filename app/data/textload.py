@@ -192,7 +192,16 @@ def build_from_file(file_path: str,
 
     store = _get_store()
 
-    # 删旧 chunk（如果之前入过库）
+    docs = _load_documents(file_path)
+    chunks = _split(docs, ext)
+    if not chunks:
+        cache[fname] = {"sig": sig, "ids": []}
+        return 0
+
+    # 先写新索引，成功后再删旧索引并更新 cache，确保失败时不会写入残缺 cache。
+    ids = [f"{fname}::{sig}::chunk_{i:04d}" for i in range(len(chunks))]
+    store.add_documents(documents=chunks, ids=ids)
+
     old_ids = entry.get("ids", [])
     if old_ids:
         try:
@@ -200,17 +209,59 @@ def build_from_file(file_path: str,
         except Exception as exc:
             logger.warning(f"删除旧索引失败 {fname}: {exc}")
 
-    docs = _load_documents(file_path)
-    chunks = _split(docs, ext)
-    if not chunks:
-        cache[fname] = {"sig": sig, "ids": []}
-        return 0
-
-    ids = [f"{fname}::chunk_{i:04d}" for i in range(len(chunks))]
-    store.add_documents(documents=chunks, ids=ids)
     cache[fname] = {"sig": sig, "ids": ids}
     logger.info(f"[done] {fname}: {len(chunks)} 块")
     return len(chunks)
+
+
+def clean_orphan_cache_entries(
+    dir_path: Optional[str] = None,
+    cache: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> Dict[str, int]:
+    """清理 cache 中已不存在源文件的孤儿索引。"""
+    dir_path = dir_path or DEFAULT_DATA_DIR
+    cache = cache if cache is not None else _load_cache()
+    if not cache:
+        return {"orphans": 0, "deleted_ids": 0}
+    store = _get_store()
+
+    deleted_ids = 0
+    orphans = 0
+    to_remove: list[str] = []
+    for fname, entry in list(cache.items()):
+        full = os.path.join(dir_path, fname)
+        if os.path.exists(full):
+            continue
+        orphans += 1
+        ids = entry.get("ids") or []
+        if ids:
+            try:
+                store.delete(ids=ids)
+                deleted_ids += len(ids)
+            except Exception as exc:
+                logger.warning(f"删除孤儿索引失败 {fname}: {exc}")
+        to_remove.append(fname)
+
+    for fname in to_remove:
+        cache.pop(fname, None)
+    _save_cache(cache)
+    return {"orphans": orphans, "deleted_ids": deleted_ids}
+
+
+def rebuild_cache_from_directory(dir_path: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+    """按磁盘文件重建 cache（不重算 embedding，不写向量）。"""
+    dir_path = dir_path or DEFAULT_DATA_DIR
+    rebuilt: Dict[str, Dict[str, Any]] = {}
+    for entry in sorted(os.listdir(dir_path)):
+        full = os.path.join(dir_path, entry)
+        if not os.path.isfile(full):
+            continue
+        ext = Path(entry).suffix.lower()
+        if ext not in SUPPORTED_EXTS:
+            continue
+        rebuilt[entry] = {"sig": _file_signature(full), "ids": []}
+    _save_cache(rebuilt)
+    return rebuilt
 
 
 def build_from_directory(dir_path: Optional[str] = None,

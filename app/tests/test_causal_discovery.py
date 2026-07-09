@@ -90,11 +90,30 @@ def test_missing_values_generate_warning(tmp_path: Path) -> None:
     assert any("缺失值" in w for w in out["warnings"])
 
 
-def test_notears_not_supported(tmp_path: Path) -> None:
+def test_notears_runs_or_returns_clear_optional_dependency_error(tmp_path: Path) -> None:
     csv_path = _mk_simple_numeric_csv(tmp_path, n=300)
     out = run_causal_discovery(str(csv_path), algorithm="NOTEARS")
+    if out["error"] is None:
+        assert out["algorithm"] == "NOTEARS"
+        assert isinstance(out["edges"], list)
+    else:
+        assert "causalnex" in str(out["error"]) or "NOTEARS" in str(out["error"])
+
+
+def test_lingam_runs_with_directed_edges(tmp_path: Path) -> None:
+    csv_path = _mk_simple_numeric_csv(tmp_path, n=500)
+    out = run_causal_discovery(str(csv_path), algorithm="LiNGAM")
+    assert out["error"] is None
+    assert out["algorithm"] == "LINGAM"
+    assert isinstance(out["edges"], list)
+    assert all(e.get("type") in {"directed", "undirected", "uncertain", "bidirected"} for e in out["edges"])
+
+
+def test_pcmci_still_not_supported(tmp_path: Path) -> None:
+    csv_path = _mk_simple_numeric_csv(tmp_path, n=300)
+    out = run_causal_discovery(str(csv_path), algorithm="PCMCI")
     assert out["error"] is not None
-    assert "暂不支持执行 NOTEARS" in str(out["error"])
+    assert "暂不支持执行 PCMCI" in str(out["error"])
 
 
 def test_tool_reads_uploaded_files_and_writes_dag_json(
